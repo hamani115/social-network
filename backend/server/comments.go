@@ -71,17 +71,40 @@ func createCommentHandler(w http.ResponseWriter, r *http.Request, postID int) {
 		return
 	}
 
-	var req CreateCommentRequest
+	var content string
+	var imagePath string
 
-	err = json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		errorJSON(w, "invalid JSON body", http.StatusBadRequest)
-		return
+	contentType := r.Header.Get("Content-Type")
+
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+
+		err := r.ParseMultipartForm(maxUploadSize)
+		if err != nil {
+			errorJSON(w, "could not read form data", http.StatusBadRequest)
+			return
+		}
+
+		content = strings.TrimSpace(r.FormValue("content"))
+
+		imagePath, err = saveUploadedImage(r, "image", "uploads/comments")
+		if err != nil {
+			errorJSON(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	} else {
+		var req CreateCommentRequest
+
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			errorJSON(w, "invalid JSON body", http.StatusBadRequest)
+			return
+		}
+
+		content = strings.TrimSpace(req.Content)
 	}
 
-	req.Content = strings.TrimSpace(req.Content)
-
-	if req.Content == "" {
+	if content == "" {
 		errorJSON(w, "comment content is required", http.StatusBadRequest)
 		return
 	}
@@ -90,13 +113,15 @@ func createCommentHandler(w http.ResponseWriter, r *http.Request, postID int) {
 		INSERT INTO comments (
 			post_id,
 			user_id,
-			content
+			content,
+			image_path
 		)
-		VALUES (?, ?, ?)
+		VALUES (?, ?, ?, ?)
 	`,
 		postID,
 		userID,
-		req.Content,
+		content,
+		imagePath,
 	)
 
 	if err != nil {

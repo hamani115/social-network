@@ -21,19 +21,24 @@ func postsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func listPostsHandler(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(userIDKey).(int)
+
 	rows, err := db.Query(`
-		SELECT 
+		SELECT
 			posts.id,
+			posts.user_id,
+			users.first_name || ' ' || users.last_name AS author_name,
+			COALESCE(users.nickname, '') AS author_nickname,
 			posts.content,
+			COALESCE(posts.image_path, '') AS image_path,
 			posts.privacy,
-			posts.created_at,
-			users.first_name,
-			users.last_name
+			posts.created_at
 		FROM posts
 		JOIN users ON users.id = posts.user_id
 		WHERE posts.privacy = 'public'
+		   OR posts.user_id = ?
 		ORDER BY posts.created_at DESC
-	`)
+	`, userID)
 
 	if err != nil {
 		errorJSON(w, "could not load posts", http.StatusInternalServerError)
@@ -41,25 +46,33 @@ func listPostsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var posts []map[string]interface{}
+	posts := []PostResponse{}
 
 	for rows.Next() {
-		var id int
-		var content, privacy, createdAt, firstName, lastName string
+		var post PostResponse
 
-		err := rows.Scan(&id, &content, &privacy, &createdAt, &firstName, &lastName)
+		err := rows.Scan(
+			&post.ID,
+			&post.UserID,
+			&post.AuthorName,
+			&post.AuthorNickname,
+			&post.Content,
+			&post.ImagePath,
+			&post.Privacy,
+			&post.CreatedAt,
+		)
+
 		if err != nil {
-			errorJSON(w, "could not read posts", http.StatusInternalServerError)
+			errorJSON(w, "could not read post data", http.StatusInternalServerError)
 			return
 		}
 
-		posts = append(posts, map[string]interface{}{
-			"id":         id,
-			"content":    content,
-			"privacy":    privacy,
-			"created_at": createdAt,
-			"author":     firstName + " " + lastName,
-		})
+		posts = append(posts, post)
+	}
+
+	if err := rows.Err(); err != nil {
+		errorJSON(w, "error while reading posts", http.StatusInternalServerError)
+		return
 	}
 
 	writeJSON(w, http.StatusOK, posts)
@@ -68,27 +81,52 @@ func listPostsHandler(w http.ResponseWriter, r *http.Request) {
 func createPostHandler(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(userIDKey).(int)
 
-	var req CreatePostRequest
+	var content string
+	var privacy string
+	var imagePath string
 
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		errorJSON(w, "invalid JSON body", http.StatusBadRequest)
-		return
+	contentType := r.Header.Get("Content-Type")
+
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+
+		err := r.ParseMultipartForm(maxUploadSize)
+		if err != nil {
+			errorJSON(w, "could not read form data", http.StatusBadRequest)
+			return
+		}
+
+		content = strings.TrimSpace(r.FormValue("content"))
+		privacy = strings.TrimSpace(r.FormValue("privacy"))
+
+		imagePath, err = saveUploadedImage(r, "image", "uploads/posts")
+		if err != nil {
+			errorJSON(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	} else { // ! WILL REMOVE LATER
+		var req CreatePostRequest
+
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			errorJSON(w, "invalid JSON body", http.StatusBadRequest)
+			return
+		}
+
+		content = strings.TrimSpace(req.Content)
+		privacy = strings.TrimSpace(req.Privacy)
 	}
 
-	req.Content = strings.TrimSpace(req.Content)
-	req.Privacy = strings.TrimSpace(req.Privacy)
-
-	if req.Content == "" {
+	if content == "" {
 		errorJSON(w, "post content is required", http.StatusBadRequest)
 		return
 	}
 
-	if req.Privacy == "" {
-		req.Privacy = "public"
+	if privacy == "" {
+		privacy = "public"
 	}
 
-	if req.Privacy != "public" && req.Privacy != "followers" && req.Privacy != "private" {
+	if privacy != "public" && privacy != "followers" && privacy != "private" {
 		errorJSON(w, "invalid privacy value", http.StatusBadRequest)
 		return
 	}
@@ -97,13 +135,15 @@ func createPostHandler(w http.ResponseWriter, r *http.Request) {
 		INSERT INTO posts (
 			user_id,
 			content,
+			image_path,
 			privacy
 		)
-		VALUES (?, ?, ?)
+		VALUES (?, ?, ?, ?)
 	`,
 		userID,
-		req.Content,
-		req.Privacy,
+		content,
+		imagePath,
+		privacy,
 	)
 
 	if err != nil {

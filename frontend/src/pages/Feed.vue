@@ -20,6 +20,16 @@
           </select>
         </div>
 
+        <div>
+          <label>Image or GIF Optional</label>
+          <input
+            ref="postImageInput"
+            type="file"
+            accept="image/png,image/jpeg,image/gif"
+            @change="handlePostImageChange"
+          />
+        </div>
+
         <button type="submit">Post</button>
       </form>
 
@@ -47,6 +57,13 @@
 
         <p>{{ post.content }}</p>
 
+        <img
+          v-if="post.image_path"
+          :src="imageUrl(post.image_path)"
+          alt="post image"
+          style="max-width: 300px; display: block; margin-top: 8px;"
+        />
+
         <small>
           Privacy: {{ post.privacy }} |
           Created at: {{ post.created_at }}
@@ -64,6 +81,12 @@
           >
             <strong>{{ comment.author_name }}</strong>
             <p>{{ comment.content }}</p>
+            <img
+              v-if="comment.image_path"
+              :src="imageUrl(comment.image_path)"
+              alt="comment image"
+              style="max-width: 220px; display: block; margin-top: 8px;"
+            />
             <small>{{ comment.created_at }}</small>
             <hr />
           </div>
@@ -77,6 +100,12 @@
               v-model="newComments[post.id]"
               type="text"
               placeholder="Write a comment..."
+            />
+
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/gif"
+              @change="handleCommentImageChange(post.id, $event)"
             />
 
             <button type="submit">Comment</button>
@@ -109,6 +138,10 @@ const commentsByPost = ref({});
 const newComments = ref({});
 const commentErrors = ref({});
 const loadingComments = ref({});
+// Images
+const newPostImage = ref(null);
+const postImageInput = ref(null);
+const newCommentImages = ref({});
 
 async function loadPosts() {
   try {
@@ -131,16 +164,27 @@ async function createPost() {
   try {
     postError.value = "";
 
+    const formData = new FormData();
+
+    formData.append("content", newPostContent.value);
+    formData.append("privacy", newPostPrivacy.value);
+
+    if (newPostImage.value) {
+      formData.append("image", newPostImage.value);
+    }
+
     await apiRequest("/posts", {
       method: "POST",
-      body: JSON.stringify({
-        content: newPostContent.value,
-        privacy: newPostPrivacy.value,
-      }),
+      body: formData,
     });
 
     newPostContent.value = "";
     newPostPrivacy.value = "public";
+    newPostImage.value = null;
+
+    if (postImageInput.value) {
+      postImageInput.value.value = "";
+    }
 
     await loadPosts();
   } catch (err) {
@@ -167,21 +211,38 @@ async function createComment(postId) {
   try {
     commentErrors.value[postId] = "";
 
-    const content = newComments.value[postId] || "";
+    const formData = new FormData();
+
+    formData.append("content", newComments.value[postId] || "");
+
+    if (newCommentImages.value[postId]) {
+      formData.append("image", newCommentImages.value[postId]);
+    }
 
     await apiRequest(`/posts/${postId}/comments`, {
       method: "POST",
-      body: JSON.stringify({
-        content,
-      }),
+      body: formData,
     });
 
     newComments.value[postId] = "";
+    newCommentImages.value[postId] = null;
 
     await loadComments(postId);
   } catch (err) {
     commentErrors.value[postId] = err.message;
   }
+}
+
+function imageUrl(path) {
+  return `http://localhost:8080${path}`;
+}
+
+function handlePostImageChange(event) {
+  newPostImage.value = event.target.files[0] || null;
+}
+
+function handleCommentImageChange(postId, event) {
+  newCommentImages.value[postId] = event.target.files[0] || null;
 }
 
 function clearFeed() {
@@ -192,6 +253,7 @@ function clearFeed() {
   loadingComments.value = {};
   loadError.value = "";
   postError.value = "";
+  newCommentImages.value = {};
 }
 
 watch(

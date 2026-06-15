@@ -30,7 +30,7 @@ func Run(addr string) error {
 	router := http.NewServeMux()
 
 	router.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
-	
+
 	router.HandleFunc("/api/register", registerHandler)
 	router.HandleFunc("/api/login", loginHandler)
 	router.HandleFunc("/api/logout", logoutHandler)
