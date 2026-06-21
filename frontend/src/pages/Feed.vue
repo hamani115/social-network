@@ -20,14 +20,32 @@
           </select>
         </div>
 
+        <section v-if="newPostPrivacy === 'private'">
+          <h3>Select who can view this private post</h3>
+
+          <p v-if="followersError">{{ followersError }}</p>
+
+          <p v-if="myFollowers.length === 0">
+            You have no followers to select yet. Only you will be able to see this post.
+          </p>
+
+          <div v-for="follower in myFollowers" :key="follower.id">
+            <label>
+              <input v-model="selectedAllowedUserIDs" type="checkbox" :value="follower.id" />
+
+              {{ follower.first_name }} {{ follower.last_name }}
+
+              <span v-if="follower.nickname">
+                - {{ follower.nickname }}
+              </span>
+            </label>
+          </div>
+        </section>
+
         <div>
           <label>Image or GIF Optional</label>
-          <input
-            ref="postImageInput"
-            type="file"
-            accept="image/png,image/jpeg,image/gif"
-            @change="handlePostImageChange"
-          />
+          <input ref="postImageInput" type="file" accept="image/png,image/jpeg,image/gif"
+            @change="handlePostImageChange" />
         </div>
 
         <button type="submit">Post</button>
@@ -57,12 +75,8 @@
 
         <p>{{ post.content }}</p>
 
-        <img
-          v-if="post.image_path"
-          :src="imageUrl(post.image_path)"
-          alt="post image"
-          style="max-width: 300px; display: block; margin-top: 8px;"
-        />
+        <img v-if="post.image_path" :src="imageUrl(post.image_path)" alt="post image"
+          style="max-width: 300px; display: block; margin-top: 8px;" />
 
         <small>
           Privacy: {{ post.privacy }} |
@@ -75,18 +89,11 @@
           <p v-if="loadingComments[post.id]">Loading comments...</p>
           <p v-if="commentErrors[post.id]">{{ commentErrors[post.id] }}</p>
 
-          <div
-            v-for="comment in commentsByPost[post.id] || []"
-            :key="comment.id"
-          >
+          <div v-for="comment in commentsByPost[post.id] || []" :key="comment.id">
             <strong>{{ comment.author_name }}</strong>
             <p>{{ comment.content }}</p>
-            <img
-              v-if="comment.image_path"
-              :src="imageUrl(comment.image_path)"
-              alt="comment image"
-              style="max-width: 220px; display: block; margin-top: 8px;"
-            />
+            <img v-if="comment.image_path" :src="imageUrl(comment.image_path)" alt="comment image"
+              style="max-width: 220px; display: block; margin-top: 8px;" />
             <small>{{ comment.created_at }}</small>
             <hr />
           </div>
@@ -96,17 +103,10 @@
           </p>
 
           <form v-if="auth.user" @submit.prevent="createComment(post.id)">
-            <input
-              v-model="newComments[post.id]"
-              type="text"
-              placeholder="Write a comment..."
-            />
+            <input v-model="newComments[post.id]" type="text" placeholder="Write a comment..." />
 
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/gif"
-              @change="handleCommentImageChange(post.id, $event)"
-            />
+            <input type="file" accept="image/png,image/jpeg,image/gif"
+              @change="handleCommentImageChange(post.id, $event)" />
 
             <button type="submit">Comment</button>
           </form>
@@ -142,6 +142,23 @@ const loadingComments = ref({});
 const newPostImage = ref(null);
 const postImageInput = ref(null);
 const newCommentImages = ref({});
+// private posts
+const myFollowers = ref([]);
+const selectedAllowedUserIDs = ref([]);
+const followersError = ref("");
+
+async function loadMyFollowers() {
+  if (!auth.user) return;
+
+  try {
+    followersError.value = "";
+
+    myFollowers.value = await apiRequest(`/users/${auth.user.id}/followers`);
+  } catch (err) {
+    followersError.value = err.message;
+    myFollowers.value = [];
+  }
+}
 
 async function loadPosts() {
   try {
@@ -169,6 +186,13 @@ async function createPost() {
     formData.append("content", newPostContent.value);
     formData.append("privacy", newPostPrivacy.value);
 
+    if (newPostPrivacy.value === "private") {
+      formData.append(
+        "allowed_user_ids",
+        JSON.stringify(selectedAllowedUserIDs.value)
+      );
+    }
+
     if (newPostImage.value) {
       formData.append("image", newPostImage.value);
     }
@@ -181,6 +205,7 @@ async function createPost() {
     newPostContent.value = "";
     newPostPrivacy.value = "public";
     newPostImage.value = null;
+    selectedAllowedUserIDs.value = [];
 
     if (postImageInput.value) {
       postImageInput.value.value = "";
@@ -232,10 +257,11 @@ async function createComment(postId) {
     commentErrors.value[postId] = err.message;
   }
 }
-
+// ===========================================================
 function imageUrl(path) {
   return `http://localhost:8080${path}`;
 }
+// ===========================================================
 
 function handlePostImageChange(event) {
   newPostImage.value = event.target.files[0] || null;
@@ -254,6 +280,10 @@ function clearFeed() {
   loadError.value = "";
   postError.value = "";
   newCommentImages.value = {};
+
+  myFollowers.value = [];
+  selectedAllowedUserIDs.value = [];
+  followersError.value = "";
 }
 
 watch(
@@ -261,11 +291,18 @@ watch(
   async (user) => {
     if (user) {
       await loadPosts();
+      await loadMyFollowers();
     } else {
       clearFeed();
     }
   },
   { immediate: true }
 );
+
+watch(newPostPrivacy, (privacy) => {
+  if (privacy !== "private") {
+    selectedAllowedUserIDs.value = [];
+  }
+});
 
 </script>

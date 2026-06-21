@@ -115,6 +115,11 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		errorJSON(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	cookie, err := r.Cookie("session_id")
 	if err == nil {
 		db.Exec("DELETE FROM sessions WHERE id = ?", cookie.Value)

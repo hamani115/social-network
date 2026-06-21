@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 )
@@ -36,9 +37,27 @@ func listPostsHandler(w http.ResponseWriter, r *http.Request) {
 		FROM posts
 		JOIN users ON users.id = posts.user_id
 		WHERE posts.privacy = 'public'
-		   OR posts.user_id = ?
+		OR posts.user_id = ?
+		OR (
+				posts.privacy = 'followers'
+				AND EXISTS (
+					SELECT 1
+					FROM followers
+					WHERE followers.follower_id = ?
+					AND followers.following_id = posts.user_id
+				)
+		)
+		OR (
+				posts.privacy = 'private'
+				AND EXISTS (
+					SELECT 1
+					FROM post_allowed_users
+					WHERE post_allowed_users.post_id = posts.id
+					AND post_allowed_users.user_id = ?
+				)
+		)
 		ORDER BY posts.created_at DESC
-	`, userID)
+	`, userID, userID, userID)
 
 	if err != nil {
 		errorJSON(w, "could not load posts", http.StatusInternalServerError)
@@ -84,6 +103,7 @@ func createPostHandler(w http.ResponseWriter, r *http.Request) {
 	var content string
 	var privacy string
 	var imagePath string
+	var allowedUserIDs []int
 
 	contentType := r.Header.Get("Content-Type")
 
@@ -98,6 +118,16 @@ func createPostHandler(w http.ResponseWriter, r *http.Request) {
 
 		content = strings.TrimSpace(r.FormValue("content"))
 		privacy = strings.TrimSpace(r.FormValue("privacy"))
+
+		allowedUserRaw := strings.TrimSpace(r.FormValue("allowed_user_ids"))
+
+		if allowedUserRaw != "" {
+			err = json.Unmarshal([]byte(allowedUserRaw), &allowedUserIDs)
+			if err != nil {
+				errorJSON(w, "invalid allowed_user_ids", http.StatusBadRequest)
+				return
+			}
+		}
 
 		imagePath, err = saveUploadedImage(r, "image", "uploads/posts")
 		if err != nil {
@@ -115,6 +145,7 @@ func createPostHandler(w http.ResponseWriter, r *http.Request) {
 
 		content = strings.TrimSpace(req.Content)
 		privacy = strings.TrimSpace(req.Privacy)
+		allowedUserIDs = req.AllowedUserIDs
 	}
 
 	if content == "" {
@@ -157,8 +188,48 @@ func createPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if privacy == "private" {
+		err = savePostAllowedUsers(int(postID), userID, allowedUserIDs)
+		if err != nil {
+			errorJSON(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
 	writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"message": "post created successfully",
 		"post_id": postID,
 	})
+}
+
+func savePostAllowedUsers(postID int, ownerID int, allowedUserIDs []int) error {
+	if len(allowedUserIDs) == 0 {
+		return nil
+	}
+
+	for _, allowedUserID := range allowedUserIDs {
+		if allowedUserID == ownerID {
+			continue
+		}
+
+		followingOwner, err := isFollowing(allowedUserID, ownerID)
+		if err != nil {
+			return err
+		}
+
+		if !followingOwner {
+			return fmt.Errorf("selected user %d is not your follower", allowedUserID)
+		}
+
+		_, err = db.Exec(`
+			INSERT OR IGNORE INTO post_allowed_users (post_id, user_id)
+			VALUES (?, ?)
+		`, postID, allowedUserID)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

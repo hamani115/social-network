@@ -43,12 +43,30 @@ func canViewPost(userID int, postID int) (bool, error) {
 	err := db.QueryRow(`
 		SELECT COUNT(*)
 		FROM posts
-		WHERE id = ?
+		WHERE posts.id = ?
 		  AND (
-		    privacy = 'public'
-		    OR user_id = ?
+			posts.privacy = 'public'
+			OR posts.user_id = ?
+			OR (
+				posts.privacy = 'followers'
+				AND EXISTS (
+					SELECT 1
+					FROM followers
+					WHERE followers.follower_id = ?
+					  AND followers.following_id = posts.user_id
+				)
+			)
+			OR (
+				posts.privacy = 'private'
+				AND EXISTS (
+					SELECT 1
+					FROM post_allowed_users
+					WHERE post_allowed_users.post_id = posts.id
+					  AND post_allowed_users.user_id = ?
+				)
+			)
 		  )
-	`, postID, userID).Scan(&count)
+	`, postID, userID, userID, userID).Scan(&count)
 
 	if err != nil {
 		return false, err

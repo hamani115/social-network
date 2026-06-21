@@ -22,7 +22,7 @@ export const useAuthStore = defineStore("auth", {
 
       await this.fetchMe();
     },
-    
+
     // !TEST THOROUGLY
     async fetchMe() {
       this.user = await apiRequest("/me");

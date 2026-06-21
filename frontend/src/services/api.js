@@ -8,12 +8,12 @@ export async function apiRequest(path, options = {}) {
     credentials: "include",
     headers: isFormData
       ? {
-          ...(options.headers || {}),
-        }
+        ...(options.headers || {}),
+      }
       : {
-          "Content-Type": "application/json",
-          ...(options.headers || {}),
-        },
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
   });
 
   const data = await response.json();
