@@ -27,8 +27,8 @@
         Request to Join
       </button>
 
-      <button v-else-if="group.membership_status === 'pending'" disabled>
-        Join Request Pending
+      <button v-else-if="group.membership_status === 'pending'" @click="cancelJoinRequest">
+        Cancel Join Request
       </button>
 
       <button v-else-if="group.membership_status === 'invited'" disabled>
@@ -385,6 +385,23 @@ async function requestJoinGroup() {
   }
 }
 
+async function cancelJoinRequest() {
+  try {
+    groupError.value = "";
+
+    await apiRequest(
+      `/groups/${groupId.value}/cancel-join-request`,
+      {
+        method: "POST",
+      }
+    );
+
+    await loadGroup();
+  } catch (err) {
+    groupError.value = err.message;
+  }
+}
+
 async function loadJoinRequests() {
   try {
     loadingJoinRequests.value = true;
@@ -481,7 +498,7 @@ async function sendInvitation() {
 }
 
 function imageUrl(path) {
-  return `http://localhost:8080${path}`;
+  return path;
 }
 
 function handleGroupPostImageChange(event) {

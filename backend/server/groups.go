@@ -94,6 +94,16 @@ func groupSubroutesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if len(parts) == 2 && parts[1] == "cancel-join-request" {
+		if r.Method != http.MethodPost {
+			errorJSON(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		cancelGroupJoinRequestHandler(w, r, groupID)
+		return
+	}
+
 	if len(parts) == 2 && parts[1] == "invitations" {
 		if r.Method == http.MethodGet {
 			listGroupInvitationsHandler(w, r, groupID)
@@ -481,6 +491,30 @@ func requestJoinGroupHandler(w http.ResponseWriter, r *http.Request, groupID int
 		return
 	}
 
+	var invitationCount int
+
+	err = db.QueryRow(`
+		SELECT COUNT(*)
+		FROM group_invitations
+		WHERE group_id = ?
+		AND invitee_id = ?
+		AND status = 'pending'
+	`, groupID, currentUserID).Scan(&invitationCount)
+
+	if err != nil {
+		errorJSON(w, "could not check group invitation", http.StatusInternalServerError)
+		return
+	}
+
+	if invitationCount > 0 {
+		errorJSON(
+			w,
+			"you already have a pending invitation to this group",
+			http.StatusBadRequest,
+		)
+		return
+	}
+
 	var pendingCount int
 
 	err = db.QueryRow(`
@@ -733,6 +767,37 @@ func declineGroupJoinRequestHandler(w http.ResponseWriter, r *http.Request, grou
 	})
 }
 
+func cancelGroupJoinRequestHandler(w http.ResponseWriter, r *http.Request, groupID int) {
+	currentUserID := r.Context().Value(userIDKey).(int)
+
+	result, err := db.Exec(`
+		DELETE FROM group_join_requests
+		WHERE group_id = ?
+		  AND requester_id = ?
+		  AND status = 'pending'
+	`, groupID, currentUserID)
+
+	if err != nil {
+		errorJSON(w, "could not cancel join request", http.StatusInternalServerError)
+		return
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		errorJSON(w, "could not check join request", http.StatusInternalServerError)
+		return
+	}
+
+	if rowsAffected == 0 {
+		errorJSON(w, "pending join request not found", http.StatusNotFound)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"message": "join request cancelled",
+	})
+}
+
 func createGroupInvitationHandler(w http.ResponseWriter, r *http.Request, groupID int) {
 	currentUserID := r.Context().Value(userIDKey).(int)
 
@@ -791,6 +856,53 @@ func createGroupInvitationHandler(w http.ResponseWriter, r *http.Request, groupI
 
 	if member {
 		errorJSON(w, "user is already a group member", http.StatusBadRequest)
+		return
+	}
+
+	var joinRequestCount int
+
+	err = db.QueryRow(`
+		SELECT COUNT(*)
+		FROM group_join_requests
+		WHERE group_id = ?
+		AND requester_id = ?
+		AND status = 'pending'
+	`, groupID, req.InviteeID).Scan(&joinRequestCount)
+
+	if err != nil {
+		errorJSON(w, "could not check join request", http.StatusInternalServerError)
+		return
+	}
+
+	if joinRequestCount > 0 {
+		errorJSON(
+			w,
+			"user already has a pending request to join this group",
+			http.StatusBadRequest,
+		)
+		return
+	}
+
+	var pendingInvitationCount int
+
+	err = db.QueryRow(`
+		SELECT COUNT(*)
+		FROM group_invitations
+		WHERE group_id = ?
+		AND invitee_id = ?
+		AND status = 'pending'
+	`, groupID, req.InviteeID).Scan(&pendingInvitationCount)
+
+	if err != nil {
+		errorJSON(w, "could not check invitation", http.StatusInternalServerError)
+		return
+	}
+
+	if pendingInvitationCount > 0 {
+		writeJSON(w, http.StatusOK, map[string]string{
+			"message": "group invitation is already pending",
+			"status":  "pending",
+		})
 		return
 	}
 
@@ -1125,4 +1237,3 @@ func declineGroupInvitationHandler(w http.ResponseWriter, r *http.Request, invit
 		"message": "group invitation declined",
 	})
 }
-

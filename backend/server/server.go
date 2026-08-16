@@ -57,10 +57,6 @@ func Run(addr string) error {
 	router.HandleFunc("/api/group-invitations/", authMiddleware(groupInvitationsSubroutesHandler))
 
 	log.Printf("Backend running on http://localhost%s\n", addr)
-	// err = http.ListenAndServe(":8080", corsMiddleware(router))
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
 
 	return http.ListenAndServe(addr, corsMiddleware(router))
 }

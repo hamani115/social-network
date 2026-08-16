@@ -259,7 +259,7 @@ async function createComment(postId) {
 }
 // ===========================================================
 function imageUrl(path) {
-  return `http://localhost:8080${path}`;
+  return path;
 }
 // ===========================================================
 

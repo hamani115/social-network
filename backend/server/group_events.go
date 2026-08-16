@@ -1,6 +1,7 @@
 package server
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -85,8 +86,12 @@ func getMyGroupEventResponse(eventID int, userID int) (string, error) {
 		  AND user_id = ?
 	`, eventID, userID).Scan(&response)
 
-	if err != nil {
+	if err == sql.ErrNoRows {
 		return "none", nil
+	}
+
+	if err != nil {
+		return "", err
 	}
 
 	return response, nil

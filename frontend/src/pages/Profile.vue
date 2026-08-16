@@ -298,7 +298,7 @@ async function unfollowUser() {
 }
 
 function imageUrl(path) {
-  return `http://localhost:8080${path}`;
+  return path;
 }
 
 onMounted(() => {
