@@ -69,6 +69,10 @@
         <h3>
           <router-link :to="`/groups/${group.id}`">
             {{ group.title }}
+
+            <span v-if="websocket.groupUnreadForGroup(group.id) > 0">
+              ({{ websocket.groupUnreadForGroup(group.id) }})
+            </span>
           </router-link>
         </h3>
 
@@ -114,6 +118,9 @@
 <script setup>
 import { onMounted, ref } from "vue";
 import { apiRequest } from "../services/api";
+import { useWebSocketStore } from "../stores/websocket";
+
+const websocket = useWebSocketStore();
 
 const groups = ref([]);
 const myInvitations = ref([]);

@@ -5,7 +5,9 @@
       |
       <router-link v-if="auth.user" to="/users">Users</router-link>
       |
-      <router-link v-if="auth.user" to="/groups">Groups</router-link>
+      <router-link v-if="auth.user" to="/groups">Groups <span v-if="websocket.groupUnreadTotal > 0">({{ websocket.groupUnreadTotal }})</span></router-link>
+      |
+      <router-link v-if="auth.user" to="/chat">Chat <span v-if="websocket.privateUnreadTotal > 0">({{ websocket.privateUnreadTotal }})</span></router-link>
       |
       <router-link v-if="auth.user" to="/profile/me">My Profile</router-link>
       |
@@ -27,6 +29,11 @@
     </nav>
 
     <hr />
+    <span v-if="auth.user">
+      |
+      WS:
+      {{ websocket.connected ? "Connected" : "Disconnected" }}
+    </span>
 
     <router-view />
   </div>
@@ -37,9 +44,11 @@ import { onMounted } from "vue";
 import { watch } from "vue";
 import { useAuthStore } from "./stores/auth";
 import { useNotificationsStore } from "./stores/notifications";
+import { useWebSocketStore } from "./stores/websocket";
 
 const auth = useAuthStore();
 const notifications = useNotificationsStore();
+const websocket = useWebSocketStore();
 
 async function handleLogout() {
   try {
@@ -62,11 +71,14 @@ watch(
   async (user) => {
     if (user) {
       await notifications.fetchNotifications();
+
+      websocket.connect(user.id);
     } else {
       notifications.clear();
+
+      websocket.disconnect();
     }
-  },
-  { immediate: true }
+  }
 );
 
 </script>

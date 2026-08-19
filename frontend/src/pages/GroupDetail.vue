@@ -68,31 +68,6 @@
           <hr />
         </article>
 
-        <h2>Invite User</h2>
-
-        <p v-if="usersError">{{ usersError }}</p>
-        <p v-if="inviteError">{{ inviteError }}</p>
-        <p v-if="inviteMessage">{{ inviteMessage }}</p>
-
-        <form @submit.prevent="sendInvitation">
-          <select v-model.number="selectedInviteeID" required>
-            <option value="" disabled>
-              Select user
-            </option>
-
-            <option v-for="user in users" :key="user.id" :value="user.id">
-              {{ user.first_name }} {{ user.last_name }}
-              <span v-if="user.nickname">
-                - {{ user.nickname }}
-              </span>
-            </option>
-          </select>
-
-          <button type="submit">
-            Send Invitation
-          </button>
-        </form>
-
         <h2>Group Invitations Sent</h2>
 
         <p v-if="loadingInvitations">Loading invitations...</p>
@@ -118,6 +93,99 @@
       </section>
 
       <section v-if="isMemberOrOwner">
+        <h2>Invite User</h2>
+
+        <p v-if="usersError">{{ usersError }}</p>
+        <p v-if="inviteError">{{ inviteError }}</p>
+        <p v-if="inviteMessage">{{ inviteMessage }}</p>
+
+        <form @submit.prevent="sendInvitation">
+          <select v-model.number="selectedInviteeID" required>
+            <option value="" disabled>
+              Select user
+            </option>
+
+            <option v-for="user in users" :key="user.id" :value="user.id">
+              {{ user.first_name }} {{ user.last_name }}
+              <span v-if="user.nickname">
+                - {{ user.nickname }}
+              </span>
+            </option>
+          </select>
+
+          <button type="submit">
+            Send Invitation
+          </button>
+        </form>
+      </section>
+
+      <section v-if="isMemberOrOwner">
+        <hr />
+
+        <section class="group-chat">
+          <h2>Group Chat</h2>
+
+          <p v-if="websocket.connected">
+            Chat connected
+          </p>
+
+          <p v-else>
+            Chat disconnected
+          </p>
+
+          <p v-if="loadingGroupMessages">
+            Loading group messages...
+          </p>
+
+          <p v-if="groupMessagesError">
+            {{ groupMessagesError }}
+          </p>
+
+          <div ref="groupMessagesContainer" class="group-chat-messages">
+            <p v-if="
+              !loadingGroupMessages &&
+              groupMessages.length === 0
+            ">
+              No group messages yet.
+            </p>
+
+            <div v-for="message in groupMessages" :key="message.id" class="group-chat-message-row" :class="{
+              mine:
+                message.sender_id === auth.user?.id,
+              theirs:
+                message.sender_id !== auth.user?.id
+            }">
+              <div class="group-chat-message">
+                <strong>
+                  {{
+                    message.sender_id === auth.user?.id
+                      ? "Me"
+                      : message.sender_name
+                  }}
+                </strong>
+
+                <p>
+                  {{ message.content }}
+                </p>
+
+                <small>
+                  {{ message.created_at }}
+                </small>
+              </div>
+            </div>
+          </div>
+
+          <form class="group-chat-form" @submit.prevent="sendGroupMessage">
+            <input v-model="groupMessageInput" type="text" placeholder="Type a group message..." autocomplete="off" />
+
+            <button type="submit" :disabled="!websocket.connected ||
+              !groupMessageInput.trim()
+              ">
+              Send
+            </button>
+          </form>
+        </section>
+
         <hr />
 
         <h2>Group Events</h2>
@@ -283,11 +351,15 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, nextTick, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { apiRequest } from "../services/api";
+import { useAuthStore } from "../stores/auth";
+import { useWebSocketStore } from "../stores/websocket";
 
 const route = useRoute();
+const auth = useAuthStore();
+const websocket = useWebSocketStore();
 
 const group = ref(null);
 const joinRequests = ref([]);
@@ -334,6 +406,15 @@ const newGroupEvent = ref({
 const loadingGroupEvents = ref(false);
 const groupEventsError = ref("");
 
+// group chat
+const groupMessages = ref([]);
+const groupMessageInput = ref("");
+
+const loadingGroupMessages = ref(false);
+const groupMessagesError = ref("");
+
+const groupMessagesContainer = ref(null);
+
 const groupId = computed(() => route.params.id);
 
 const isOwner = computed(() => {
@@ -354,16 +435,25 @@ async function loadGroup() {
 
     group.value = await apiRequest(`/groups/${groupId.value}`);
 
+    if (isMemberOrOwner.value) {
+      websocket.setActiveGroup(
+        Number(groupId.value)
+      );
+    }
+
     if (isOwner.value) {
       await loadJoinRequests();
       await loadGroupInvitations();
-      await loadUsers();
     }
 
     if (isMemberOrOwner.value) {
+      await loadUsers();
+
       await loadGroupPosts();
       await loadGroupEvents();
+      await loadGroupMessages();
     }
+
   } catch (err) {
     groupError.value = err.message;
   } finally {
@@ -671,13 +761,119 @@ async function respondToEvent(eventId, response) {
   }
 }
 
-onMounted(() => {
-  loadGroup();
-});
+
+async function loadGroupMessages() {
+  if (!isMemberOrOwner.value) {
+    groupMessages.value = [];
+    return;
+  }
+
+  try {
+    loadingGroupMessages.value = true;
+    groupMessagesError.value = "";
+
+    groupMessages.value = await apiRequest(
+      `/groups/${groupId.value}/messages`
+    );
+
+    await scrollGroupChatToBottom();
+  } catch (err) {
+    groupMessagesError.value = err.message;
+  } finally {
+    loadingGroupMessages.value = false;
+  }
+}
+
+function handleIncomingGroupMessage(message) {
+  if (!message) {
+    return;
+  }
+
+  if (message.group_id !== Number(groupId.value)) {
+    return;
+  }
+
+  const alreadyExists =
+    groupMessages.value.some(
+      existingMessage =>
+        existingMessage.id === message.id
+    );
+
+  if (alreadyExists) {
+    return;
+  }
+
+  groupMessages.value.push(message);
+
+  scrollGroupChatToBottom();
+}
+
+function sendGroupMessage() {
+  groupMessagesError.value = "";
+
+  const content =
+    groupMessageInput.value.trim();
+
+  if (!content) {
+    return;
+  }
+
+  if (!isMemberOrOwner.value) {
+    groupMessagesError.value =
+      "you must be a group member to send messages";
+
+    return;
+  }
+
+  const sent = websocket.send({
+    type: "group_message",
+    group_id: Number(groupId.value),
+    content,
+  });
+
+  if (!sent) {
+    groupMessagesError.value =
+      websocket.error;
+
+    return;
+  }
+
+  groupMessageInput.value = "";
+}
+
+async function scrollGroupChatToBottom() {
+  await nextTick();
+
+  if (!groupMessagesContainer.value) {
+    return;
+  }
+
+  groupMessagesContainer.value.scrollTop =
+    groupMessagesContainer.value.scrollHeight;
+}
+
+watch(
+  () => websocket.eventVersion,
+  () => {
+    const event = websocket.lastEvent;
+
+    if (!event) {
+      return;
+    }
+
+    if (event.type === "group_message") {
+      handleIncomingGroupMessage(
+        event.data
+      );
+    }
+  }
+);
 
 watch(
   () => route.fullPath,
   () => {
+    websocket.setActiveGroup(null);
+
     group.value = null;
     joinRequests.value = [];
     groupInvitations.value = [];
@@ -701,8 +897,69 @@ watch(
     };
     groupEventsError.value = "";
 
+    groupMessages.value = [];
+    groupMessageInput.value = "";
+    groupMessagesError.value = "";
+
     loadGroup();
   }
 );
 
+onMounted(() => {
+  loadGroup();
+});
+
+onUnmounted(() => {
+  websocket.setActiveGroup(null);
+});
+
+
 </script>
+
+<style scoped>
+.group-chat {
+  margin-top: 20px;
+}
+
+.group-chat-messages {
+  height: 350px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.group-chat-message-row {
+  display: flex;
+  margin-bottom: 12px;
+}
+
+.group-chat-message-row.mine {
+  justify-content: flex-end;
+}
+
+.group-chat-message-row.theirs {
+  justify-content: flex-start;
+}
+
+.group-chat-message {
+  max-width: 70%;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.group-chat-message p {
+  margin: 5px 0;
+}
+
+.group-chat-form {
+  display: flex;
+  gap: 10px;
+}
+
+.group-chat-form input {
+  flex: 1;
+  padding: 10px;
+}
+</style>
