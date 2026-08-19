@@ -1,5 +1,7 @@
 package server
 
+import "github.com/gorilla/websocket"
+
 // auth
 type RegisterRequest struct {
 	Email       string `json:"email"`
@@ -221,4 +223,69 @@ type GroupEventResponse struct {
 	NotGoingCount int    `json:"not_going_count"`
 	MyResponse    string `json:"my_response"`
 	CreatedAt     string `json:"created_at"`
+}
+
+// private chat
+type ChatUserResponse struct {
+	ID        int    `json:"id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Nickname  string `json:"nickname"`
+}
+
+type PrivateMessageResponse struct {
+	ID         int    `json:"id"`
+	SenderID   int    `json:"sender_id"`
+	ReceiverID int    `json:"receiver_id"`
+	SenderName string `json:"sender_name"`
+	Content    string `json:"content"`
+	CreatedAt  string `json:"created_at"`
+}
+
+type WebSocketEvent struct {
+	Type  string `json:"type"`
+	Data  any    `json:"data,omitempty"`
+	Error string `json:"error,omitempty"`
+}
+
+type IncomingWebSocketEvent struct {
+	Type       string `json:"type"`
+	ReceiverID int    `json:"receiver_id,omitempty"`
+	GroupID    int    `json:"group_id,omitempty"`
+	Content    string `json:"content,omitempty"`
+}
+
+type HubDelivery struct {
+	UserID int
+	Event  WebSocketEvent
+}
+
+type Hub struct {
+	clients map[int]*Client
+
+	register   chan *Client
+	unregister chan *Client
+
+	deliver chan HubDelivery
+}
+
+// websockets
+type Client struct {
+	hub *Hub
+
+	userID int
+
+	conn *websocket.Conn
+
+	send chan WebSocketEvent
+}
+
+// group chat
+type GroupMessageResponse struct {
+	ID         int    `json:"id"`
+	GroupID    int    `json:"group_id"`
+	SenderID   int    `json:"sender_id"`
+	SenderName string `json:"sender_name"`
+	Content    string `json:"content"`
+	CreatedAt  string `json:"created_at"`
 }

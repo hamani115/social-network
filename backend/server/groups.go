@@ -195,6 +195,17 @@ func groupSubroutesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if len(parts) == 2 && parts[1] == "messages" {
+		if r.Method != http.MethodGet {
+			errorJSON(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		listGroupMessagesHandler(w, r, groupID)
+
+		return
+	}
+
 	errorJSON(w, "route not found", http.StatusNotFound)
 }
 
@@ -801,14 +812,15 @@ func cancelGroupJoinRequestHandler(w http.ResponseWriter, r *http.Request, group
 func createGroupInvitationHandler(w http.ResponseWriter, r *http.Request, groupID int) {
 	currentUserID := r.Context().Value(userIDKey).(int)
 
-	owner, err := isGroupOwner(currentUserID, groupID)
+	member, err := isGroupMember(currentUserID, groupID)
+
 	if err != nil {
-		errorJSON(w, "could not check group ownership", http.StatusInternalServerError)
+		errorJSON(w, "could not check group membership", http.StatusInternalServerError)
 		return
 	}
 
-	if !owner {
-		errorJSON(w, "only the group owner can invite users", http.StatusForbidden)
+	if !member {
+		errorJSON(w, "only group members can invite users", http.StatusForbidden)
 		return
 	}
 
@@ -848,7 +860,7 @@ func createGroupInvitationHandler(w http.ResponseWriter, r *http.Request, groupI
 		return
 	}
 
-	member, err := isGroupMember(req.InviteeID, groupID)
+	member, err = isGroupMember(req.InviteeID, groupID)
 	if err != nil {
 		errorJSON(w, "could not check group membership", http.StatusInternalServerError)
 		return

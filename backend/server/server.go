@@ -27,6 +27,8 @@ func Run(addr string) error {
 	}
 	defer db.Close()
 
+	go chatHub.run()
+
 	router := http.NewServeMux()
 
 	router.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
@@ -55,6 +57,11 @@ func Run(addr string) error {
 	router.HandleFunc("/api/groups/", authMiddleware(groupSubroutesHandler))             // GET + POST, GET + POST, GET + POST
 	router.HandleFunc("/api/group-invitations", authMiddleware(groupInvitationsHandler)) //
 	router.HandleFunc("/api/group-invitations/", authMiddleware(groupInvitationsSubroutesHandler))
+	// private chat
+	router.HandleFunc("/api/chat/users", authMiddleware(chatUsersHandler))
+	router.HandleFunc("/api/chat/", authMiddleware(chatSubroutesHandler))
+	// websocket
+	router.HandleFunc("/api/ws", authMiddleware(websocketHandler))
 
 	log.Printf("Backend running on http://localhost%s\n", addr)
 
