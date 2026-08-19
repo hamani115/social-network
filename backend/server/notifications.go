@@ -324,3 +324,41 @@ func notifyGroupInvitationAccepted(inviterID int, inviteeID int, groupID int) er
 		fmt.Sprintf("/groups/%d", groupID),
 	)
 }
+
+func notifyGroupEventCreated(groupID int, creatorID int, eventTitle string) error {
+	memberIDs, err := getGroupMemberIDs(groupID)
+	if err != nil {
+		return err
+	}
+
+	creatorName := getUserDisplayName(creatorID)
+	groupTitle := getGroupTitle(groupID)
+
+	for _, memberID := range memberIDs {
+		if memberID == creatorID {
+			continue
+		}
+
+		err := createNotification(
+			memberID,
+			creatorID,
+			"group_event_created",
+			fmt.Sprintf(
+				"%s created a new event \"%s\" in %s.",
+				creatorName,
+				eventTitle,
+				groupTitle,
+			),
+			fmt.Sprintf(
+				"/groups/%d",
+				groupID,
+			),
+		)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

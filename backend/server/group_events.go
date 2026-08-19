@@ -57,6 +57,21 @@ func createGroupEventHandler(w http.ResponseWriter, r *http.Request, groupID int
 		return
 	}
 
+	err = notifyGroupEventCreated(
+		groupID,
+		currentUserID,
+		title,
+	)
+
+	if err != nil {
+		errorJSON(
+			w,
+			"event created but notifications failed",
+			http.StatusInternalServerError,
+		)
+		return
+	}	
+
 	writeJSON(w, http.StatusCreated, map[string]interface{}{
 		"message":  "group event created successfully",
 		"event_id": eventID,
