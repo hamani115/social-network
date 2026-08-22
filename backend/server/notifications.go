@@ -161,7 +161,7 @@ func markAllNotificationsReadHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func createNotification(userID int, requesterID int, notificationType string, message string, linkPath string) error {
-	_, err := db.Exec(`
+	result, err := db.Exec(`
 		INSERT INTO notifications (
 			user_id,
 			requester_id,
@@ -170,9 +170,66 @@ func createNotification(userID int, requesterID int, notificationType string, me
 			link_path
 		)
 		VALUES (?, ?, ?, ?, ?)
-	`, userID, requesterID, notificationType, message, linkPath)
+	`,
+		userID,
+		requesterID,
+		notificationType,
+		message,
+		linkPath,
+	)
 
-	return err
+	if err != nil {
+		return err
+	}
+
+	notificationID, err := result.LastInsertId()
+
+	if err != nil {
+		return err
+	}
+
+	var notification NotificationResponse
+	var isReadInt int
+
+	err = db.QueryRow(`
+		SELECT
+			id,
+			user_id,
+			COALESCE(requester_id, 0),
+			type,
+			message,
+			link_path,
+			is_read,
+			created_at
+		FROM notifications
+		WHERE id = ?
+	`, notificationID).Scan(
+		&notification.ID,
+		&notification.UserID,
+		&notification.RequesterID,
+		&notification.Type,
+		&notification.Message,
+		&notification.LinkPath,
+		&isReadInt,
+		&notification.CreatedAt,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	notification.IsRead =
+		isReadInt == 1
+
+	chatHub.deliver <- HubDelivery{
+		UserID: userID,
+		Event: WebSocketEvent{
+			Type: "notification",
+			Data: notification,
+		},
+	}
+
+	return nil
 }
 
 func getUserDisplayName(userID int) string {

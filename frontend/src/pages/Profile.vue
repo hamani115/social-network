@@ -8,20 +8,43 @@
         {{ profile.first_name }} {{ profile.last_name }}
       </h1>
 
-      <p v-if="profile.nickname">
-        Nickname: {{ profile.nickname }}
-      </p>
-
       <p>
         Profile:
-        <strong>{{ profile.is_public ? "Public" : "Private" }}</strong>
+        <strong>
+          {{ profile.is_public ? "Public" : "Private" }}
+        </strong>
       </p>
 
-      <p>
-        Followers: <strong>{{ profile.followers_count }}</strong>
-        |
-        Following: <strong>{{ profile.following_count }}</strong>
-      </p>
+      <section v-if="profile.can_view_profile">
+        <img v-if="profile.avatar_path" :src="imageUrl(profile.avatar_path)" alt="Profile avatar"
+          style="max-width: 200px" />
+
+        <p>
+          Email:
+          <strong>{{ profile.email }}</strong>
+        </p>
+
+        <p>
+          Date of Birth:
+          <strong>{{ profile.date_of_birth }}</strong>
+        </p>
+
+        <p v-if="profile.nickname">
+          Nickname:
+          <strong>{{ profile.nickname }}</strong>
+        </p>
+
+        <p v-if="profile.about_me">
+          About Me:
+          {{ profile.about_me }}
+        </p>
+
+        <p>
+          Followers: <strong>{{ profile.followers_count }}</strong>
+          |
+          Following: <strong>{{ profile.following_count }}</strong>
+        </p>
+      </section>
 
       <section v-if="profile.can_view_profile">
         <h2>Followers</h2>
@@ -119,31 +142,33 @@
       <hr />
 
       <section>
-        <h2>Posts</h2>
+        <section v-if="profile.can_view_profile">
+          <h2>Posts</h2>
 
-        <p v-if="loadingPosts">Loading posts...</p>
-        <p v-if="postsError">{{ postsError }}</p>
+          <p v-if="loadingPosts">Loading posts...</p>
+          <p v-if="postsError">{{ postsError }}</p>
 
-        <p v-if="posts.length === 0">
-          No posts to show.
-        </p>
-
-        <article v-for="post in posts" :key="post.id">
-          <h3>{{ post.author_name }}</h3>
-
-          <p>
-            Privacy:
-            <strong>{{ post.privacy }}</strong>
+          <p v-if="posts.length === 0">
+            No posts to show.
           </p>
 
-          <p>{{ post.content }}</p>
+          <article v-for="post in posts" :key="post.id">
+            <h3>{{ post.author_name }}</h3>
 
-          <img v-if="post.image_path" :src="imageUrl(post.image_path)" alt="Post image" style="max-width: 300px" />
+            <p>
+              Privacy:
+              <strong>{{ post.privacy }}</strong>
+            </p>
 
-          <p>{{ post.created_at }}</p>
+            <p>{{ post.content }}</p>
 
-          <hr />
-        </article>
+            <img v-if="post.image_path" :src="imageUrl(post.image_path)" alt="Post image" style="max-width: 300px" />
+
+            <p>{{ post.created_at }}</p>
+
+            <hr />
+          </article>
+        </section>
       </section>
     </section>
   </main>
@@ -201,8 +226,14 @@ async function loadProfile() {
     editForm.value.about_me = profile.value.about_me || "";
     editForm.value.is_public = profile.value.is_public;
 
-    await loadProfilePosts();
-    await loadFollowLists();
+    if (profile.value.can_view_profile) {
+      await loadProfilePosts();
+      await loadFollowLists();
+    } else {
+      posts.value = [];
+      followers.value = [];
+      following.value = [];
+    };
   } catch (err) {
     error.value = err.message;
   } finally {

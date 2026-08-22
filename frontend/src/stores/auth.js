@@ -7,10 +7,23 @@ export const useAuthStore = defineStore("auth", {
   }),
 
   actions: {
-    async register(form) {
-      return apiRequest("/register", {
+    async register(form, avatar) {
+      const formData = new FormData();
+      formData.append("email", form.email);
+      formData.append("password", form.password);
+      formData.append("first_name", form.first_name);
+      formData.append("last_name", form.last_name);
+      formData.append("date_of_birth", form.date_of_birth);
+      formData.append("nickname", form.nickname);
+      formData.append("about_me", form.about_me);
+
+      if (avatar) {
+        formData.append("avatar", avatar);
+      }
+
+      return await apiRequest("/register", {
         method: "POST",
-        body: JSON.stringify(form),
+        body: formData,
       });
     },
 

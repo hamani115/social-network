@@ -29,13 +29,21 @@
       </div>
 
       <div>
-        <label>Nickname Optional</label>
+        <label>Nickname (Optional)</label>
         <input v-model="form.nickname" type="text" />
       </div>
 
       <div>
-        <label>About Me Optional</label>
+        <label>About Me (Optional)</label>
         <textarea v-model="form.about_me"></textarea>
+      </div>
+
+      <div>
+        <label for="avatar">
+          Avatar/Image (Optional)
+        </label>
+
+        <input id="avatar" type="file" accept="image/jpeg,image/png,image/gif" @change="handleAvatarChange" />
       </div>
 
       <button type="submit">Register</button>
@@ -67,12 +75,14 @@ const form = reactive({
   about_me: "",
 });
 
+const avatar = ref(null);
+
 async function submitRegister() {
   try {
     error.value = "";
     message.value = "";
 
-    await auth.register(form);
+    await auth.register(form, avatar.value);
 
     message.value = "Registered successfully. You can now login.";
 
@@ -80,6 +90,11 @@ async function submitRegister() {
   } catch (err) {
     error.value = err.message;
   }
+}
+
+function handleAvatarChange(event) {
+  const file = event.target.files[0];
+  avatar.value = file || null;
 }
 
 </script>

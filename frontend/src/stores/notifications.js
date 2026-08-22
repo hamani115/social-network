@@ -45,6 +45,26 @@ export const useNotificationsStore = defineStore("notifications", {
       await this.fetchNotifications();
     },
 
+    addNotification(notification) {
+      if (!notification) {
+        return;
+      }
+
+      const alreadyExists =
+        this.notifications.some(
+          existing =>
+            existing.id === notification.id
+        );
+
+      if (alreadyExists) {
+        return;
+      }
+
+      this.notifications.unshift(
+        notification
+      );
+    },
+
     clear() {
       this.notifications = [];
       this.loading = false;

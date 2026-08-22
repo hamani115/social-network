@@ -118,24 +118,25 @@ func getProfileHandler(w http.ResponseWriter, r *http.Request, profileUserID int
 
 	profile.CanViewProfile = profile.IsOwner || profile.IsPublic || profile.FollowStatus == "following"
 
-	profile.FollowersCount, err = countFollowers(profileUserID)
-	if err != nil {
-		errorJSON(w, "could not count followers", http.StatusInternalServerError)
-		return
-	}
+	if profile.CanViewProfile {
+		profile.FollowersCount, err = countFollowers(profileUserID)
 
-	profile.FollowingCount, err = countFollowing(profileUserID)
-	if err != nil {
-		errorJSON(w, "could not count following", http.StatusInternalServerError)
-		return
-	}
+		if err != nil {
+			errorJSON(w, "could not count followers", http.StatusInternalServerError)
+			return
+		}
 
-	if !profile.IsOwner {
+		profile.FollowingCount, err = countFollowing(profileUserID)
+
+		if err != nil {
+			errorJSON(w, "could not count following", http.StatusInternalServerError)
+			return
+		}
+	} else {
 		profile.Email = ""
 		profile.DateOfBirth = ""
-	}
-
-	if !profile.CanViewProfile {
+		profile.AvatarPath = ""
+		profile.Nickname = ""
 		profile.AboutMe = ""
 	}
 
@@ -203,6 +204,23 @@ func countFollowing(userID int) (int, error) {
 
 func listProfilePostsHandler(w http.ResponseWriter, r *http.Request, profileUserID int) {
 	currentUserID := r.Context().Value(userIDKey).(int)
+
+	canView, err := canViewUserProfile(currentUserID, profileUserID)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			errorJSON(w, "profile not found", http.StatusNotFound)
+			return
+		}
+
+		errorJSON(w, "could not check profile visibility", http.StatusInternalServerError)
+		return
+	}
+
+	if !canView {
+		errorJSON(w, "this profile is private", http.StatusForbidden)
+		return
+	}
 
 	rows, err := db.Query(`
 		SELECT

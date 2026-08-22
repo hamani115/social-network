@@ -9,45 +9,84 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func registerHandler(w http.ResponseWriter, r *http.Request) {
+func registerHandler(w http.ResponseWriter,	r *http.Request) {
 	if r.Method != http.MethodPost {
 		errorJSON(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var req RegisterRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		errorJSON(w, "invalid JSON", http.StatusBadRequest)
+	r.Body = http.MaxBytesReader(w, r.Body,	maxUploadSize)
+
+	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+		errorJSON(w, "could not read registration form", http.StatusBadRequest)
 		return
 	}
 
-	req.Email = strings.TrimSpace(req.Email)
+	// if err != nil {
+	// 	errorJSON(w, "could not read registration form", http.StatusBadRequest)
+	// 	return
+	// }
 
-	if req.Email == "" || req.Password == "" || req.FirstName == "" || req.LastName == "" || req.DateOfBirth == "" {
+	email := strings.TrimSpace(r.FormValue("email"))
+	password :=	r.FormValue("password")
+	firstName := strings.TrimSpace(r.FormValue("first_name"))
+	lastName :=	strings.TrimSpace(r.FormValue("last_name"))
+	dateOfBirth := strings.TrimSpace(r.FormValue("date_of_birth"))
+	nickname :=	strings.TrimSpace(r.FormValue("nickname"))
+	aboutMe := strings.TrimSpace(r.FormValue("about_me"))
+
+	if email == "" || password == "" || firstName == "" || lastName == "" || dateOfBirth == "" {
 		errorJSON(w, "missing required fields", http.StatusBadRequest)
 		return
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+
 	if err != nil {
-		errorJSON(w, "could not hash password", http.StatusInternalServerError)
+		errorJSON(w, "could not hash password",	http.StatusInternalServerError)
+		return
+	}
+
+	avatarPath, err := saveUploadedImage(r, "avatar", "uploads/avatars")
+
+	if err != nil {
+		errorJSON(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	_, err = db.Exec(`
-		INSERT INTO users 
-		(email, password_hash, first_name, last_name, date_of_birth, nickname, about_me)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, req.Email, string(hash), req.FirstName, req.LastName, req.DateOfBirth, req.Nickname, req.AboutMe)
+		INSERT INTO users (
+			email,
+			password_hash,
+			first_name,
+			last_name,
+			date_of_birth,
+			avatar_path,
+			nickname,
+			about_me
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`,
+		email,
+		string(hash),
+		firstName,
+		lastName,
+		dateOfBirth,
+		avatarPath,
+		nickname,
+		aboutMe,
+	)
 
 	if err != nil {
 		errorJSON(w, "could not create user, email may already exist", http.StatusBadRequest)
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, map[string]string{
-		"message": "user registered successfully",
-	})
+	writeJSON(w, http.StatusCreated,
+		map[string]string{
+			"message": "user registered successfully",
+		},
+	)
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
