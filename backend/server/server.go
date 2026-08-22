@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"os"
 
 	dbsqlite "social-network/backend/pkg/db/sqlite"
 )
@@ -13,7 +14,11 @@ var db *sql.DB
 func Run(addr string) error {
 	var err error
 
-	dbPath := "social.db"
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = "social.db"
+	}
+	
 	migrationsPath := "pkg/db/migrations/sqlite"
 
 	err = dbsqlite.RunMigrations(dbPath, migrationsPath)

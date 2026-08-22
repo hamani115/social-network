@@ -1,0 +1,37 @@
+services:
+  backend:
+    build:
+      context: ./backend
+
+    image: social-network-backend
+
+    environment:
+      DB_PATH: /app/data/social.db
+
+    volumes:
+      - backend-data:/app/data
+      - backend-uploads:/app/uploads
+
+    expose:
+      - "8080"
+
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+
+    image: social-network-frontend
+
+    ports:
+      - "8081:80"
+
+    depends_on:
+      - backend
+
+    restart: unless-stopped
+
+
+volumes:
+  backend-data:
+  backend-uploads:
