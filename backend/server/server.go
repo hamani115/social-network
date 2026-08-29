@@ -18,7 +18,7 @@ func Run(addr string) error {
 	if dbPath == "" {
 		dbPath = "social.db"
 	}
-	
+
 	migrationsPath := "pkg/db/migrations/sqlite"
 
 	err = dbsqlite.RunMigrations(dbPath, migrationsPath)

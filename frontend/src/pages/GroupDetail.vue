@@ -1,419 +1,453 @@
 <template>
-  <main>
-    <p v-if="loadingGroup">Loading group...</p>
-    <p v-if="groupError">{{ groupError }}</p>
+  <main class="group-detail-page">
+    <!-- LOADING + ERROR -->
 
-    <section v-if="group">
-      <h1>{{ group.title }}</h1>
+    <div v-if="loadingGroup" class="group-page-state">
+      <span class="loading-spinner"></span>
+      Loading group...
+    </div>
 
-      <p>{{ group.description }}</p>
+    <p v-else-if="groupError && !group" class="group-page-error">
+      {{ groupError }}
+    </p>
 
-      <p>
-        Created by:
-        <strong>{{ group.creator_name }}</strong>
-      </p>
+    <template v-else-if="group">
+      <!-- GROUP HERO -->
 
-      <p>
-        Members:
-        <strong>{{ group.member_count }}</strong>
-      </p>
+      <section class="group-hero">
+        <div class="group-hero-icon">
+          {{ group.title?.charAt(0)?.toUpperCase() || "G" }}
+        </div>
 
-      <p>
-        Your status:
-        <strong>{{ group.membership_status }}</strong>
-      </p>
+        <div class="group-hero-content">
+          <div class="group-hero-title-row">
+            <h1>
+              {{ group.title }}
+            </h1>
 
-      <button v-if="group.membership_status === 'none'" @click="requestJoinGroup">
-        Request to Join
-      </button>
+            <span
+              class="group-membership-badge"
+              :class="`status-${group.membership_status}`"
+            >
+              {{
+                group.membership_status === "owner"
+                  ? "Owner"
+                  : group.membership_status === "member"
+                    ? "Member"
+                    : group.membership_status === "pending"
+                      ? "Request pending"
+                      : group.membership_status === "invited"
+                        ? "Invited"
+                        : "Not a member"
+              }}
+            </span>
+          </div>
 
-      <button v-else-if="group.membership_status === 'pending'" @click="cancelJoinRequest">
-        Cancel Join Request
-      </button>
-
-      <button v-else-if="group.membership_status === 'invited'" disabled>
-        You have an invitation. Check the Groups page.
-      </button>
-
-      <section v-if="isOwner">
-        <hr />
-
-        <h2>Pending Join Requests</h2>
-
-        <p v-if="loadingJoinRequests">Loading join requests...</p>
-        <p v-if="joinRequestsError">{{ joinRequestsError }}</p>
-
-        <p v-if="joinRequests.length === 0">
-          No pending join requests.
-        </p>
-
-        <article v-for="request in joinRequests" :key="request.id">
-          <p>
-            <strong>{{ request.requester_name }}</strong>
-            wants to join this group.
+          <p v-if="group.description" class="group-description">
+            {{ group.description }}
           </p>
 
-          <p v-if="request.requester_nickname">
-            Nickname: {{ request.requester_nickname }}
-          </p>
+          <div class="group-summary">
+            <span>
+              Created by
+              <strong>
+                {{ group.creator_name }}
+              </strong>
+            </span>
 
-          <button @click="acceptJoinRequest(request.id)">
-            Accept
-          </button>
+            <span class="group-summary-divider"> - </span>
 
-          <button @click="declineJoinRequest(request.id)">
-            Decline
-          </button>
+            <span>
+              <strong>
+                {{ group.member_count }}
+              </strong>
 
-          <hr />
-        </article>
+              {{ group.member_count === 1 ? "member" : "members" }}
+            </span>
+          </div>
 
-        <h2>Group Invitations Sent</h2>
+          <!-- NON-MEMBER ACTION -->
 
-        <p v-if="loadingInvitations">Loading invitations...</p>
-        <p v-if="invitationsError">{{ invitationsError }}</p>
+          <div v-if="!isMemberOrOwner" class="group-join-actions">
+            <button
+              v-if="group.membership_status === 'none'"
+              type="button"
+              class="button-primary"
+              @click="requestJoinGroup"
+            >
+              Request to join
+            </button>
 
-        <p v-if="groupInvitations.length === 0">
-          No invitations found.
-        </p>
+            <button
+              v-else-if="group.membership_status === 'pending'"
+              type="button"
+              class="button group-pending-button"
+              @click="cancelJoinRequest"
+            >
+              Cancel join request
+            </button>
 
-        <article v-for="invitation in groupInvitations" :key="invitation.id">
-          <p>
-            Invited:
-            <strong>{{ invitation.invitee_name }}</strong>
-          </p>
+            <div
+              v-else-if="group.membership_status === 'invited'"
+              class="group-invited-notice"
+            >
+              You have a pending invitation to this group.
 
-          <p>
-            Status:
-            <strong>{{ invitation.status }}</strong>
-          </p>
-
-          <hr />
-        </article>
-      </section>
-
-      <section v-if="isMemberOrOwner">
-        <h2>Invite User</h2>
-
-        <p v-if="usersError">{{ usersError }}</p>
-        <p v-if="inviteError">{{ inviteError }}</p>
-        <p v-if="inviteMessage">{{ inviteMessage }}</p>
-
-        <form @submit.prevent="sendInvitation">
-          <select v-model.number="selectedInviteeID" required>
-            <option value="" disabled>
-              Select user
-            </option>
-
-            <option v-for="user in users" :key="user.id" :value="user.id">
-              {{ user.first_name }} {{ user.last_name }}
-              <span v-if="user.nickname">
-                - {{ user.nickname }}
-              </span>
-            </option>
-          </select>
-
-          <button type="submit">
-            Send Invitation
-          </button>
-        </form>
-      </section>
-
-      <section v-if="isMemberOrOwner">
-        <hr />
-
-        <section class="group-chat">
-          <h2>Group Chat</h2>
-
-          <p v-if="websocket.connected">
-            Chat connected
-          </p>
-
-          <p v-else>
-            Chat disconnected
-          </p>
-
-          <p v-if="loadingGroupMessages">
-            Loading group messages...
-          </p>
-
-          <p v-if="groupMessagesError">
-            {{ groupMessagesError }}
-          </p>
-
-          <div ref="groupMessagesContainer" class="group-chat-messages">
-            <p v-if="
-              !loadingGroupMessages &&
-              groupMessages.length === 0
-            ">
-              No group messages yet.
-            </p>
-
-            <div v-for="message in groupMessages" :key="message.id" class="group-chat-message-row" :class="{
-              mine:
-                message.sender_id === auth.user?.id,
-              theirs:
-                message.sender_id !== auth.user?.id
-            }">
-              <div class="group-chat-message">
-                <strong>
-                  {{
-                    message.sender_id === auth.user?.id
-                      ? "Me"
-                      : message.sender_name
-                  }}
-                </strong>
-
-                <p>
-                  {{ message.content }}
-                </p>
-
-                <small>
-                  {{ message.created_at }}
-                </small>
-              </div>
+              <router-link to="/groups"> View invitations </router-link>
             </div>
           </div>
 
-          <form class="group-chat-form" @submit.prevent="sendGroupMessage">
-            <input v-model="groupMessageInput" type="text" placeholder="Type a group message..." autocomplete="off" />
+          <!-- MEMBER ACTION -->
 
-            <button type="submit" :disabled="!websocket.connected ||
-              !groupMessageInput.trim()
-              ">
-              Send
+          <div
+            v-if="group.membership_status === 'member'"
+            class="group-member-actions"
+          >
+            <button
+              type="button"
+              class="button group-leave-button"
+              :disabled="leavingGroup"
+              @click="leaveGroup"
+            >
+              {{ leavingGroup ? "Leaving..." : "Leave group" }}
             </button>
-          </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- GROUP NAVIGATION -->
+
+      <nav
+        v-if="isMemberOrOwner"
+        class="group-tabs"
+        aria-label="Group sections"
+      >
+        <button
+          type="button"
+          class="group-tab"
+          :class="{
+            active: activeGroupTab === 'overview',
+          }"
+          @click="selectGroupTab('overview')"
+        >
+          Overview
+        </button>
+
+        <button
+          type="button"
+          class="group-tab"
+          :class="{
+            active: activeGroupTab === 'posts',
+          }"
+          @click="selectGroupTab('posts')"
+        >
+          Posts
+        </button>
+
+        <button
+          type="button"
+          class="group-tab"
+          :class="{
+            active: activeGroupTab === 'events',
+          }"
+          @click="selectGroupTab('events')"
+        >
+          Events
+        </button>
+
+        <button
+          type="button"
+          class="group-tab"
+          :class="{
+            active: activeGroupTab === 'members',
+          }"
+          @click="selectGroupTab('members')"
+        >
+          Members
+        </button>
+
+        <button
+          type="button"
+          class="group-tab"
+          :class="{
+            active: activeGroupTab === 'chat',
+          }"
+          @click="selectGroupTab('chat')"
+        >
+          Chat
+
+          <span
+            v-if="websocket.groupUnreadForGroup(Number(groupId)) > 0"
+            class="group-tab-badge"
+          >
+            {{ websocket.groupUnreadForGroup(Number(groupId)) }}
+          </span>
+        </button>
+
+        <button
+          v-if="isOwner"
+          type="button"
+          class="group-tab"
+          :class="{
+            active: activeGroupTab === 'management',
+          }"
+          @click="selectGroupTab('management')"
+        >
+          Management
+
+          <span v-if="joinRequests.length > 0" class="group-tab-badge">
+            {{ joinRequests.length }}
+          </span>
+        </button>
+      </nav>
+
+      <!-- OVERVIEW -->
+
+      <section
+        v-if="!isMemberOrOwner || activeGroupTab === 'overview'"
+        class="group-tab-panel"
+      >
+        <div class="group-panel-heading">
+          <div>
+            <h2>About this group</h2>
+          </div>
+        </div>
+
+        <div class="group-overview-grid">
+          <div class="group-overview-item">
+            <span> Creator </span>
+
+            <strong>
+              {{ group.creator_name }}
+            </strong>
+          </div>
+
+          <div class="group-overview-item">
+            <span> Members </span>
+
+            <strong>
+              {{ group.member_count }}
+            </strong>
+          </div>
+
+          <div class="group-overview-item">
+            <span> Your role </span>
+
+            <strong>
+              {{ group.membership_status }}
+            </strong>
+          </div>
+
+          <div class="group-overview-item">
+            <span> Created </span>
+
+            <strong>
+              {{ formatDate(group.created_at) }}
+            </strong>
+          </div>
+        </div>
+      </section>
+
+      <!-- POSTS -->
+
+      <GroupPostsTab
+        v-if="isMemberOrOwner"
+        :group-id="groupId"
+        :active="activeGroupTab === 'posts'"
+      />
+
+      <!-- EVENTS -->
+
+      <GroupEventsTab
+        v-if="isMemberOrOwner"
+        :group-id="groupId"
+        :active="activeGroupTab === 'events'"
+      />
+
+      <!-- MEMBERS -->
+      <GroupMembersTab
+        v-if="isMemberOrOwner"
+        :group-id="groupId"
+        :member-count="group.member_count"
+        :active="activeGroupTab === 'members'"
+        @invitation-sent="handleInvitationSent"
+      />
+
+      <!-- CHAT -->
+
+      <GroupChatTab
+        v-if="isMemberOrOwner"
+        :group-id="groupId"
+        :active="activeGroupTab === 'chat'"
+      />
+
+      <!-- MANAGEMENT -->
+
+      <section
+        v-if="isOwner && activeGroupTab === 'management'"
+        class="group-tab-panel"
+      >
+        <div class="group-panel-heading">
+          <div>
+            <h2>Group management</h2>
+          </div>
+        </div>
+
+        <section class="management-section">
+          <div class="management-heading">
+            <h3>Pending join requests</h3>
+
+            <span v-if="joinRequests.length" class="group-tab-badge">
+              {{ joinRequests.length }}
+            </span>
+          </div>
+
+          <p v-if="loadingJoinRequests" class="group-section-state">
+            Loading join requests...
+          </p>
+
+          <p v-if="joinRequestsError" class="group-page-error">
+            {{ joinRequestsError }}
+          </p>
+
+          <p
+            v-if="!loadingJoinRequests && joinRequests.length === 0"
+            class="group-empty-state"
+          >
+            No pending join requests.
+          </p>
+
+          <article
+            v-for="request in joinRequests"
+            :key="request.id"
+            class="management-request"
+          >
+            <div class="management-person">
+              <UserAvatar
+                :avatar-path="request.requester_avatar_path"
+                :name="request.requester_name"
+                class="management-avatar"
+              />
+
+              <div class="management-person-info">
+                <strong>
+                  {{ request.requester_name }}
+                </strong>
+
+                <span v-if="request.requester_nickname">
+                  {{ request.requester_nickname }}
+                </span>
+              </div>
+            </div>
+
+            <div class="management-actions">
+              <button
+                type="button"
+                class="button button-ghost"
+                @click="declineJoinRequest(request.id)"
+              >
+                Decline
+              </button>
+
+              <button
+                type="button"
+                class="button-primary"
+                @click="acceptJoinRequest(request.id)"
+              >
+                Accept
+              </button>
+            </div>
+          </article>
         </section>
 
-        <hr />
+        <section class="management-section">
+          <h3>Invitations sent</h3>
 
-        <h2>Group Events</h2>
-
-        <form @submit.prevent="createGroupEvent">
-          <div>
-            <label for="event-title">Event Title</label>
-            <input id="event-title" v-model="newGroupEvent.title" type="text" required />
-          </div>
-
-          <div>
-            <label for="event-description">Event Description</label>
-            <textarea id="event-description" v-model="newGroupEvent.description"></textarea>
-          </div>
-
-          <div>
-            <label for="event-time">Event Time</label>
-            <input id="event-time" v-model="newGroupEvent.event_time" type="datetime-local" required />
-          </div>
-
-          <button type="submit">Create Event</button>
-        </form>
-
-        <p v-if="loadingGroupEvents">Loading group events...</p>
-        <p v-if="groupEventsError">{{ groupEventsError }}</p>
-
-        <p v-if="groupEvents.length === 0">
-          No group events yet.
-        </p>
-
-        <article v-for="event in groupEvents" :key="event.id">
-          <h3>{{ event.title }}</h3>
-
-          <p v-if="event.description">
-            {{ event.description }}
+          <p v-if="loadingInvitations" class="group-section-state">
+            Loading invitations...
           </p>
 
-          <p>
-            Time:
-            <strong>{{ event.event_time }}</strong>
+          <p v-if="invitationsError" class="group-page-error">
+            {{ invitationsError }}
           </p>
 
-          <p>
-            Created by:
-            <strong>{{ event.creator_name }}</strong>
+          <p
+            v-if="!loadingInvitations && groupInvitations.length === 0"
+            class="group-empty-state"
+          >
+            No invitations found.
           </p>
 
-          <p>
-            Going:
-            <strong>{{ event.going_count }}</strong>
-            |
-            Not going:
-            <strong>{{ event.not_going_count }}</strong>
-          </p>
+          <article
+            v-for="invitation in groupInvitations"
+            :key="invitation.id"
+            class="management-invitation"
+          >
+            <div class="management-person">
+              <UserAvatar
+                :avatar-path="invitation.invitee_avatar_path"
+                :name="invitation.invitee_name"
+                class="management-avatar"
+              />
 
-          <p>
-            My response:
-            <strong>{{ event.my_response }}</strong>
-          </p>
+              <div class="management-person-info">
+                <strong>
+                  {{ invitation.invitee_name }}
+                </strong>
 
-          <button :disabled="event.my_response === 'going'" @click="respondToEvent(event.id, 'going')">
-            Going
-          </button>
-
-          <button :disabled="event.my_response === 'not_going'" @click="respondToEvent(event.id, 'not_going')">
-            Not Going
-          </button>
-
-          <hr />
-        </article>
-        <hr />
-
-        <h2>Group Posts</h2>
-
-        <form @submit.prevent="createGroupPost">
-          <div>
-            <label for="group-post-content">New Group Post</label>
-            <textarea id="group-post-content" v-model="newGroupPostContent" required></textarea>
-          </div>
-
-          <div>
-            <label for="group-post-image">Image/GIF</label>
-            <input id="group-post-image" ref="groupPostImageInput" type="file" accept="image/png,image/jpeg,image/gif"
-              @change="handleGroupPostImageChange" />
-          </div>
-
-          <button type="submit">Post to Group</button>
-        </form>
-
-        <p v-if="loadingGroupPosts">Loading group posts...</p>
-        <p v-if="groupPostsError">{{ groupPostsError }}</p>
-
-        <p v-if="groupPosts.length === 0">
-          No group posts yet.
-        </p>
-
-        <article v-for="post in groupPosts" :key="post.id">
-          <h3>{{ post.author_name }}</h3>
-
-          <p v-if="post.author_nickname">
-            Nickname: {{ post.author_nickname }}
-          </p>
-
-          <p>{{ post.content }}</p>
-
-          <img v-if="post.image_path" :src="imageUrl(post.image_path)" alt="Group post image"
-            style="max-width: 300px" />
-
-          <p>{{ post.created_at }}</p>
-
-          <section>
-            <h4>Comments</h4>
-
-            <p v-if="groupCommentErrors[post.id]">
-              {{ groupCommentErrors[post.id] }}
-            </p>
-
-            <article v-for="comment in groupCommentsByPost[post.id] || []" :key="comment.id">
-              <p>
-                <strong>{{ comment.author_name }}</strong>
-                <span v-if="comment.author_nickname">
-                  - {{ comment.author_nickname }}
+                <span v-if="invitation.invitee_nickname">
+                  {{ invitation.invitee_nickname }}
                 </span>
-              </p>
-
-              <p>{{ comment.content }}</p>
-
-              <img v-if="comment.image_path" :src="imageUrl(comment.image_path)" alt="Group comment image"
-                style="max-width: 200px" />
-
-              <p>{{ comment.created_at }}</p>
-            </article>
-
-            <form @submit.prevent="createGroupComment(post.id)">
-              <div>
-                <label :for="`group-comment-${post.id}`">
-                  Add Comment
-                </label>
-
-                <input :id="`group-comment-${post.id}`" v-model="newGroupComments[post.id]" type="text" required />
               </div>
+            </div>
 
-              <div>
-                <label :for="`group-comment-image-${post.id}`">
-                  Image/GIF
-                </label>
-
-                <input :id="`group-comment-image-${post.id}`" :ref="(el) => {
-                  if (el) groupCommentImageInputs[post.id] = el;
-                }" type="file" accept="image/png,image/jpeg,image/gif"
-                  @change="handleGroupCommentImageChange(post.id, $event)" />
-              </div>
-
-              <button type="submit">Comment</button>
-            </form>
-          </section>
-
-          <hr />
-        </article>
+            <span class="invitation-status">
+              {{ invitation.status }}
+            </span>
+          </article>
+        </section>
       </section>
-    </section>
+    </template>
   </main>
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, nextTick, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { apiRequest } from "../services/api";
-import { useAuthStore } from "../stores/auth";
 import { useWebSocketStore } from "../stores/websocket";
 
+import { formatDate } from "../utils/date";
+
+import GroupPostsTab from "../components/group/GroupPostsTab.vue";
+import GroupEventsTab from "../components/group/GroupEventsTab.vue";
+import GroupMembersTab from "../components/group/GroupMembersTab.vue";
+import GroupChatTab from "../components/group/GroupChatTab.vue";
+import UserAvatar from "../components/UserAvatar.vue";
+
 const route = useRoute();
-const auth = useAuthStore();
+// const auth = useAuthStore();
 const websocket = useWebSocketStore();
 
 const group = ref(null);
 const joinRequests = ref([]);
 const groupInvitations = ref([]);
-const users = ref([]);
-
-const selectedInviteeID = ref("");
 
 const loadingGroup = ref(false);
 const loadingJoinRequests = ref(false);
 const loadingInvitations = ref(false);
 
+const leavingGroup = ref(false);
+
 const groupError = ref("");
 const joinRequestsError = ref("");
 const invitationsError = ref("");
-const usersError = ref("");
-const inviteError = ref("");
-const inviteMessage = ref("");
 
-// Group Feed
-const groupPosts = ref([]);
-const groupCommentsByPost = ref({});
-const newGroupPostContent = ref("");
-const newGroupPostImage = ref(null);
-const groupPostImageInput = ref(null);
+const activeGroupTab = ref("overview");
 
-const newGroupComments = ref({});
-const newGroupCommentImages = ref({});
-const groupCommentImageInputs = ref({});
-
-const loadingGroupPosts = ref(false);
-const groupPostsError = ref("");
-const groupCommentErrors = ref({});
-
-// Group Events
-const groupEvents = ref([]);
-
-const newGroupEvent = ref({
-  title: "",
-  description: "",
-  event_time: "",
+const loadedGroupTabs = ref({
+  management: false,
 });
-
-const loadingGroupEvents = ref(false);
-const groupEventsError = ref("");
-
-// group chat
-const groupMessages = ref([]);
-const groupMessageInput = ref("");
-
-const loadingGroupMessages = ref(false);
-const groupMessagesError = ref("");
-
-const groupMessagesContainer = ref(null);
 
 const groupId = computed(() => route.params.id);
 
@@ -428,6 +462,12 @@ const isMemberOrOwner = computed(() => {
   );
 });
 
+async function handleInvitationSent() {
+  if (isOwner.value) {
+    await loadGroupInvitations();
+  }
+}
+
 async function loadGroup() {
   try {
     loadingGroup.value = true;
@@ -435,25 +475,9 @@ async function loadGroup() {
 
     group.value = await apiRequest(`/groups/${groupId.value}`);
 
-    if (isMemberOrOwner.value) {
-      websocket.setActiveGroup(
-        Number(groupId.value)
-      );
-    }
-
     if (isOwner.value) {
       await loadJoinRequests();
-      await loadGroupInvitations();
     }
-
-    if (isMemberOrOwner.value) {
-      await loadUsers();
-
-      await loadGroupPosts();
-      await loadGroupEvents();
-      await loadGroupMessages();
-    }
-
   } catch (err) {
     groupError.value = err.message;
   } finally {
@@ -461,15 +485,38 @@ async function loadGroup() {
   }
 }
 
+async function selectGroupTab(tab) {
+  if (tab !== "overview" && !isMemberOrOwner.value) {
+    return;
+  }
+
+  if (tab === "management" && !isOwner.value) {
+    return;
+  }
+
+  activeGroupTab.value = tab;
+
+  switch (tab) {
+    case "management":
+      if (!loadedGroupTabs.value.management) {
+        await Promise.all([loadJoinRequests(), loadGroupInvitations()]);
+
+        loadedGroupTabs.value.management = true;
+      }
+
+      break;
+  }
+}
+
 async function requestJoinGroup() {
   try {
     groupError.value = "";
 
-    await apiRequest(`/groups/${groupId.value}/join-request`, {
+    const result = await apiRequest(`/groups/${groupId.value}/join-request`, {
       method: "POST",
     });
 
-    await loadGroup();
+    group.value.membership_status = result.status || "pending";
   } catch (err) {
     groupError.value = err.message;
   }
@@ -479,16 +526,50 @@ async function cancelJoinRequest() {
   try {
     groupError.value = "";
 
-    await apiRequest(
-      `/groups/${groupId.value}/cancel-join-request`,
-      {
-        method: "POST",
-      }
-    );
+    await apiRequest(`/groups/${groupId.value}/cancel-join-request`, {
+      method: "POST",
+    });
+
+    group.value.membership_status = "none";
+  } catch (err) {
+    groupError.value = err.message;
+  }
+}
+
+async function leaveGroup() {
+  if (leavingGroup.value || group.value?.membership_status !== "member") {
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Leave "${group.value.title}"?\n\n` +
+      "You will lose access to the group's posts, events, members and chat",
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    leavingGroup.value = true;
+
+    groupError.value = "";
+
+    await apiRequest(`/groups/${groupId.value}/leave`, {
+      method: "POST",
+    });
+
+    activeGroupTab.value = "overview";
+
+    loadedGroupTabs.value = {
+      management: false,
+    };
 
     await loadGroup();
   } catch (err) {
     groupError.value = err.message;
+  } finally {
+    leavingGroup.value = false;
   }
 }
 
@@ -498,7 +579,7 @@ async function loadJoinRequests() {
     joinRequestsError.value = "";
 
     joinRequests.value = await apiRequest(
-      `/groups/${groupId.value}/join-requests`
+      `/groups/${groupId.value}/join-requests`,
     );
   } catch (err) {
     joinRequestsError.value = err.message;
@@ -512,13 +593,19 @@ async function acceptJoinRequest(requestId) {
     joinRequestsError.value = "";
 
     await apiRequest(
-      `/groups/${groupId.value}/join-requests/${requestId}/accept`,
+      `/groups/${groupId.value}` + `/join-requests/${requestId}/accept`,
       {
         method: "POST",
-      }
+      },
     );
 
-    await loadGroup();
+    joinRequests.value = joinRequests.value.filter(
+      (request) => request.id !== requestId,
+    );
+
+    if (group.value) {
+      group.value.member_count += 1;
+    }
   } catch (err) {
     joinRequestsError.value = err.message;
   }
@@ -529,13 +616,15 @@ async function declineJoinRequest(requestId) {
     joinRequestsError.value = "";
 
     await apiRequest(
-      `/groups/${groupId.value}/join-requests/${requestId}/decline`,
+      `/groups/${groupId.value}` + `/join-requests/${requestId}/decline`,
       {
         method: "POST",
-      }
+      },
     );
 
-    await loadGroup();
+    joinRequests.value = joinRequests.value.filter(
+      (request) => request.id !== requestId,
+    );
   } catch (err) {
     joinRequestsError.value = err.message;
   }
@@ -547,7 +636,7 @@ async function loadGroupInvitations() {
     invitationsError.value = "";
 
     groupInvitations.value = await apiRequest(
-      `/groups/${groupId.value}/invitations`
+      `/groups/${groupId.value}/invitations`,
     );
   } catch (err) {
     invitationsError.value = err.message;
@@ -556,410 +645,491 @@ async function loadGroupInvitations() {
   }
 }
 
-async function loadUsers() {
-  try {
-    usersError.value = "";
-
-    users.value = await apiRequest("/users");
-  } catch (err) {
-    usersError.value = err.message;
-  }
-}
-
-async function sendInvitation() {
-  try {
-    inviteError.value = "";
-    inviteMessage.value = "";
-
-    await apiRequest(`/groups/${groupId.value}/invitations`, {
-      method: "POST",
-      body: JSON.stringify({
-        invitee_id: selectedInviteeID.value,
-      }),
-    });
-
-    selectedInviteeID.value = "";
-    inviteMessage.value = "Invitation sent successfully.";
-
-    await loadGroupInvitations();
-  } catch (err) {
-    inviteError.value = err.message;
-  }
-}
-
-function imageUrl(path) {
-  return path;
-}
-
-function handleGroupPostImageChange(event) {
-  const file = event.target.files[0];
-  newGroupPostImage.value = file || null;
-}
-
-function handleGroupCommentImageChange(postId, event) {
-  const file = event.target.files[0];
-  newGroupCommentImages.value[postId] = file || null;
-}
-
-async function loadGroupPosts() {
-  if (!isMemberOrOwner.value) {
-    groupPosts.value = [];
-    groupCommentsByPost.value = {};
-    return;
-  }
-
-  try {
-    loadingGroupPosts.value = true;
-    groupPostsError.value = "";
-
-    groupPosts.value = await apiRequest(`/groups/${groupId.value}/posts`);
-
-    for (const post of groupPosts.value) {
-      await loadGroupComments(post.id);
-    }
-  } catch (err) {
-    groupPostsError.value = err.message;
-  } finally {
-    loadingGroupPosts.value = false;
-  }
-}
-
-async function loadGroupComments(postId) {
-  try {
-    groupCommentErrors.value[postId] = "";
-
-    groupCommentsByPost.value[postId] = await apiRequest(
-      `/groups/${groupId.value}/posts/${postId}/comments`
-    );
-  } catch (err) {
-    groupCommentErrors.value[postId] = err.message;
-  }
-}
-
-async function createGroupPost() {
-  try {
-    groupPostsError.value = "";
-
-    const formData = new FormData();
-
-    formData.append("content", newGroupPostContent.value);
-
-    if (newGroupPostImage.value) {
-      formData.append("image", newGroupPostImage.value);
-    }
-
-    await apiRequest(`/groups/${groupId.value}/posts`, {
-      method: "POST",
-      body: formData,
-    });
-
-    newGroupPostContent.value = "";
-    newGroupPostImage.value = null;
-
-    if (groupPostImageInput.value) {
-      groupPostImageInput.value.value = "";
-    }
-
-    await loadGroupPosts();
-  } catch (err) {
-    groupPostsError.value = err.message;
-  }
-}
-
-async function createGroupComment(postId) {
-  try {
-    groupCommentErrors.value[postId] = "";
-
-    const content = newGroupComments.value[postId] || "";
-
-    const formData = new FormData();
-
-    formData.append("content", content);
-
-    if (newGroupCommentImages.value[postId]) {
-      formData.append("image", newGroupCommentImages.value[postId]);
-    }
-
-    await apiRequest(`/groups/${groupId.value}/posts/${postId}/comments`, {
-      method: "POST",
-      body: formData,
-    });
-
-    newGroupComments.value[postId] = "";
-    newGroupCommentImages.value[postId] = null;
-
-    if (groupCommentImageInputs.value[postId]) {
-      groupCommentImageInputs.value[postId].value = "";
-    }
-
-    await loadGroupComments(postId);
-  } catch (err) {
-    groupCommentErrors.value[postId] = err.message;
-  }
-}
-
-function formatEventTimeForBackend(value) {
-  if (!value) return "";
-
-  return value.replace("T", " ") + ":00";
-}
-
-async function loadGroupEvents() {
-  if (!isMemberOrOwner.value) {
-    groupEvents.value = [];
-    return;
-  }
-
-  try {
-    loadingGroupEvents.value = true;
-    groupEventsError.value = "";
-
-    groupEvents.value = await apiRequest(`/groups/${groupId.value}/events`);
-  } catch (err) {
-    groupEventsError.value = err.message;
-  } finally {
-    loadingGroupEvents.value = false;
-  }
-}
-
-async function createGroupEvent() {
-  try {
-    groupEventsError.value = "";
-
-    await apiRequest(`/groups/${groupId.value}/events`, {
-      method: "POST",
-      body: JSON.stringify({
-        title: newGroupEvent.value.title,
-        description: newGroupEvent.value.description,
-        event_time: formatEventTimeForBackend(newGroupEvent.value.event_time),
-      }),
-    });
-
-    newGroupEvent.value.title = "";
-    newGroupEvent.value.description = "";
-    newGroupEvent.value.event_time = "";
-
-    await loadGroupEvents();
-  } catch (err) {
-    groupEventsError.value = err.message;
-  }
-}
-
-async function respondToEvent(eventId, response) {
-  try {
-    groupEventsError.value = "";
-
-    const action = response === "going" ? "going" : "not-going";
-
-    await apiRequest(`/groups/${groupId.value}/events/${eventId}/${action}`, {
-      method: "POST",
-    });
-
-    await loadGroupEvents();
-  } catch (err) {
-    groupEventsError.value = err.message;
-  }
-}
-
-
-async function loadGroupMessages() {
-  if (!isMemberOrOwner.value) {
-    groupMessages.value = [];
-    return;
-  }
-
-  try {
-    loadingGroupMessages.value = true;
-    groupMessagesError.value = "";
-
-    groupMessages.value = await apiRequest(
-      `/groups/${groupId.value}/messages`
-    );
-
-    await scrollGroupChatToBottom();
-  } catch (err) {
-    groupMessagesError.value = err.message;
-  } finally {
-    loadingGroupMessages.value = false;
-  }
-}
-
-function handleIncomingGroupMessage(message) {
-  if (!message) {
-    return;
-  }
-
-  if (message.group_id !== Number(groupId.value)) {
-    return;
-  }
-
-  const alreadyExists =
-    groupMessages.value.some(
-      existingMessage =>
-        existingMessage.id === message.id
-    );
-
-  if (alreadyExists) {
-    return;
-  }
-
-  groupMessages.value.push(message);
-
-  scrollGroupChatToBottom();
-}
-
-function sendGroupMessage() {
-  groupMessagesError.value = "";
-
-  const content =
-    groupMessageInput.value.trim();
-
-  if (!content) {
-    return;
-  }
-
-  if (!isMemberOrOwner.value) {
-    groupMessagesError.value =
-      "you must be a group member to send messages";
-
-    return;
-  }
-
-  const sent = websocket.send({
-    type: "group_message",
-    group_id: Number(groupId.value),
-    content,
-  });
-
-  if (!sent) {
-    groupMessagesError.value =
-      websocket.error;
-
-    return;
-  }
-
-  groupMessageInput.value = "";
-}
-
-async function scrollGroupChatToBottom() {
-  await nextTick();
-
-  if (!groupMessagesContainer.value) {
-    return;
-  }
-
-  groupMessagesContainer.value.scrollTop =
-    groupMessagesContainer.value.scrollHeight;
-}
-
-watch(
-  () => websocket.eventVersion,
-  () => {
-    const event = websocket.lastEvent;
-
-    if (!event) {
-      return;
-    }
-
-    if (event.type === "group_message") {
-      handleIncomingGroupMessage(
-        event.data
-      );
-    }
-  }
-);
-
 watch(
   () => route.fullPath,
   () => {
-    websocket.setActiveGroup(null);
+    activeGroupTab.value = "overview";
+
+    loadedGroupTabs.value = {
+      management: false,
+    };
 
     group.value = null;
     joinRequests.value = [];
     groupInvitations.value = [];
-    users.value = [];
-    selectedInviteeID.value = "";
-
-    groupPosts.value = [];
-    groupCommentsByPost.value = {};
-    newGroupPostContent.value = "";
-    newGroupPostImage.value = null;
-    newGroupComments.value = {};
-    newGroupCommentImages.value = {};
-    groupPostsError.value = "";
-    groupCommentErrors.value = {};
-
-    groupEvents.value = [];
-    newGroupEvent.value = {
-      title: "",
-      description: "",
-      event_time: "",
-    };
-    groupEventsError.value = "";
-
-    groupMessages.value = [];
-    groupMessageInput.value = "";
-    groupMessagesError.value = "";
 
     loadGroup();
-  }
+  },
 );
 
 onMounted(() => {
   loadGroup();
 });
-
-onUnmounted(() => {
-  websocket.setActiveGroup(null);
-});
-
-
 </script>
 
 <style scoped>
-.group-chat {
-  margin-top: 20px;
+.group-detail-page {
+  width: min(1000px, 100%);
 }
 
-.group-chat-messages {
-  height: 350px;
-  overflow-y: auto;
-  border: 1px solid #ccc;
+/* PAGE STATES */
+
+.group-page-state {
+  min-height: 220px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 9px;
+
+  color: var(--text-muted);
+}
+
+.group-page-error {
+  margin: 0;
+
+  padding: 11px 13px;
+
+  border: 1px solid rgba(255, 95, 109, 0.2);
+
+  border-radius: var(--radius-md);
+
+  background: var(--danger-soft);
+
+  color: var(--danger);
+
+  font-size: 13px;
+}
+
+/* GROUP HERO */
+
+.group-hero {
+  display: flex;
+
+  gap: 20px;
+
+  margin-bottom: 20px;
+  padding: 24px;
+
+  border: 1px solid var(--border-soft);
+
+  border-radius: var(--radius-xl);
+
+  background: var(--surface);
+
+  box-shadow: var(--shadow-sm);
+}
+
+.group-hero-icon {
+  width: 64px;
+  height: 64px;
+
+  flex: 0 0 64px;
+
+  display: grid;
+  place-items: center;
+
+  border: 1px solid var(--primary-border);
+
+  border-radius: 16px;
+
+  background: var(--primary-soft);
+
+  color: var(--primary);
+
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.group-hero-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.group-hero-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 16px;
+}
+
+.group-hero h1 {
+  margin-bottom: 8px;
+}
+
+.group-description {
+  max-width: 720px;
+
+  color: var(--text-secondary);
+}
+
+.group-summary {
+  display: flex;
+  align-items: center;
+
+  flex-wrap: wrap;
+
+  gap: 8px;
+
+  color: var(--text-muted);
+
+  font-size: 12px;
+}
+
+.group-summary-divider {
+  color: var(--border);
+}
+
+.group-membership-badge {
+  flex-shrink: 0;
+
+  padding: 4px 9px;
+
+  border: 1px solid var(--border);
+
+  border-radius: var(--radius-round);
+
+  color: var(--text-secondary);
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.status-owner {
+  border-color: var(--primary-border);
+
+  background: var(--primary-soft);
+
+  color: var(--primary);
+}
+
+.status-member {
+  border-color: rgba(54, 201, 143, 0.25);
+
+  background: rgba(54, 201, 143, 0.08);
+
+  color: var(--success);
+}
+
+.status-pending {
+  color: var(--warning);
+}
+
+.group-join-actions {
+  margin-top: 16px;
+}
+
+.group-member-actions {
+  margin-top: 16px;
+}
+
+.group-leave-button {
+  border-color: rgba(255, 95, 109, 0.28);
+
+  color: var(--danger);
+}
+
+.group-leave-button:hover:not(:disabled) {
+  border-color: rgba(255, 95, 109, 0.42);
+
+  background: var(--danger-soft);
+
+  color: var(--danger);
+}
+
+.group-invited-notice {
+  padding: 11px 13px;
+
+  border: 1px solid var(--primary-border);
+
+  border-radius: var(--radius-md);
+
+  background: var(--primary-soft);
+
+  color: var(--text-secondary);
+
+  font-size: 13px;
+}
+
+/* TABS */
+
+.group-tabs {
+  position: sticky;
+  top: 64px;
+
+  z-index: 50;
+
+  display: flex;
+
+  gap: 4px;
+
+  margin-bottom: 20px;
+  padding: 6px;
+
+  overflow-x: auto;
+
+  border: 1px solid var(--border-soft);
+
+  border-radius: var(--radius-lg);
+
+  background: rgba(21, 24, 29, 0.94);
+
+  backdrop-filter: blur(12px);
+
+  scrollbar-width: none;
+}
+
+.group-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.group-tab {
+  position: relative;
+
+  flex: 0 0 auto;
+
+  min-height: 38px;
+
+  padding: 7px 13px;
+
+  border: 0;
+  border-radius: var(--radius-md);
+
+  background: transparent;
+
+  color: var(--text-muted);
+
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.group-tab:hover {
+  background: var(--surface-2);
+
+  color: var(--text);
+}
+
+.group-tab.active {
+  background: var(--primary-soft);
+
+  color: var(--primary);
+}
+
+.group-tab-badge {
+  min-width: 18px;
+  height: 18px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  margin-left: 5px;
+  padding: 0 5px;
+
+  border-radius: var(--radius-round);
+
+  background: var(--primary);
+
+  color: white;
+
+  font-size: 10px;
+}
+
+/* TAB PANEL */
+
+.group-tab-panel {
+  padding: 22px;
+
+  border: 1px solid var(--border-soft);
+
+  border-radius: var(--radius-lg);
+
+  background: var(--surface);
+
+  box-shadow: var(--shadow-sm);
+}
+
+.group-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 18px;
+
+  margin-bottom: 20px;
+}
+
+.group-panel-heading h2 {
+  margin-bottom: 4px;
+}
+
+.group-overview-grid {
+  display: grid;
+
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  gap: 12px;
+}
+
+.group-overview-item {
+  display: flex;
+  flex-direction: column;
+
+  gap: 4px;
+
   padding: 15px;
-  margin-bottom: 15px;
+
+  border: 1px solid var(--border-soft);
+
+  border-radius: var(--radius-md);
+
+  background: var(--bg-secondary);
 }
 
-.group-chat-message-row {
+.group-overview-item span {
+  color: var(--text-muted);
+
+  font-size: 11px;
+}
+
+/* SHARED CONTENT */
+
+.group-section-state,
+.group-empty-state {
+  color: var(--text-muted);
+
+  font-size: 13px;
+
+  text-align: center;
+}
+
+/* MANAGEMENT */
+
+.management-person {
+  min-width: 0;
+
   display: flex;
-  margin-bottom: 12px;
-}
-
-.group-chat-message-row.mine {
-  justify-content: flex-end;
-}
-
-.group-chat-message-row.theirs {
-  justify-content: flex-start;
-}
-
-.group-chat-message {
-  max-width: 70%;
-  border: 1px solid #ccc;
-  border-radius: 10px;
-  padding: 10px;
-}
-
-.group-chat-message p {
-  margin: 5px 0;
-}
-
-.group-chat-form {
-  display: flex;
+  align-items: center;
   gap: 10px;
 }
 
-.group-chat-form input {
-  flex: 1;
-  padding: 10px;
+.management-avatar {
+  width: 40px;
+  height: 40px;
+
+  flex: 0 0 40px;
+
+  display: grid;
+  place-items: center;
+
+  overflow: hidden;
+
+  border: 1px solid var(--primary-border);
+  border-radius: 50%;
+
+  background: var(--primary-soft);
+  color: var(--primary);
+
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.management-person-info {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+}
+
+.management-person-info span {
+  color: var(--text-muted);
+
+  font-size: 11px;
+}
+
+.management-section + .management-section {
+  margin-top: 28px;
+  padding-top: 22px;
+
+  border-top: 1px solid var(--border-soft);
+}
+
+.management-heading {
+  display: flex;
+  /* align-items: center; */
+
+  gap: 8px;
+}
+
+.management-request,
+.management-invitation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 16px;
+
+  padding: 14px;
+
+  background: var(--bg-secondary);
+}
+
+.management-actions {
+  flex-shrink: 0;
+
+  display: flex;
+
+  gap: 7px;
+}
+
+.invitation-status {
+  color: var(--text-muted);
+
+  font-size: 12px;
+}
+
+@media (max-width: 700px) {
+  .group-hero {
+    padding: 18px;
+
+    flex-direction: column;
+  }
+
+  .group-hero-title-row {
+    flex-direction: column;
+  }
+
+  .group-tabs {
+    top: 55px;
+  }
+
+  .group-tab-panel {
+    padding: 16px;
+  }
+
+  .group-panel-heading {
+    flex-direction: column;
+  }
+
+  .group-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .management-request,
+  .management-invitation {
+    align-items: stretch;
+
+    flex-direction: column;
+  }
+
+  .management-actions {
+    width: 100%;
+  }
+
+  .management-actions button {
+    flex: 1;
+  }
 }
 </style>

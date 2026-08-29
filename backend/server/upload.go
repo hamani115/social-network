@@ -3,9 +3,11 @@ package server
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const maxUploadSize = 10 << 20 // 10 MB
@@ -65,12 +67,67 @@ func saveUploadedImage(r *http.Request, fieldName string, folder string) (string
 	if err != nil {
 		return "", err
 	}
-	defer destination.Close()
 
 	_, err = io.Copy(destination, file)
 	if err != nil {
+		destination.Close()
+		os.Remove(fullPath)
+
+		return "", err
+	}
+
+	err = destination.Close()
+	if err != nil {
+		os.Remove(fullPath)
+
 		return "", err
 	}
 
 	return "/" + filepath.ToSlash(fullPath), nil
+}
+
+func removeUploadedImage(imagePath string) {
+	if imagePath == "" {
+		return
+	}
+
+	// Database paths look like:
+	// /uploads/posts/example.jpg
+	//
+	// Filesystem paths look like:
+	// uploads/posts/example.jpg
+	filePath := strings.TrimPrefix(
+		imagePath,
+		"/",
+	)
+
+	filePath = filepath.Clean(filePath)
+
+	// Safety check:
+	// never allow this helper to delete
+	// anything outside the uploads directory.
+	slashPath := filepath.ToSlash(filePath)
+
+	if !strings.HasPrefix(
+		slashPath,
+		"uploads/",
+	) {
+		log.Printf(
+			"refusing to remove invalid upload path: %s",
+			imagePath,
+		)
+		return
+	}
+
+	err := os.Remove(filePath)
+
+	if err != nil &&
+		!os.IsNotExist(err) {
+
+		log.Printf(
+			"could not remove uploaded file %s: %v",
+			imagePath,
+			err,
+		)
+	}
 }

@@ -3,6 +3,7 @@ package server
 import (
 	"database/sql"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -101,6 +102,65 @@ func groupSubroutesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		cancelGroupJoinRequestHandler(w, r, groupID)
+		return
+	}
+
+	if len(parts) == 2 && parts[1] == "leave" {
+		if r.Method != http.MethodPost {
+			errorJSON(
+				w,
+				"method not allowed",
+				http.StatusMethodNotAllowed,
+			)
+			return
+		}
+
+		leaveGroupHandler(
+			w,
+			r,
+			groupID,
+		)
+
+		return
+	}
+
+	if len(parts) == 2 && parts[1] == "members" {
+		if r.Method != http.MethodGet {
+			errorJSON(
+				w,
+				"method not allowed",
+				http.StatusMethodNotAllowed,
+			)
+			return
+		}
+
+		listGroupMembersHandler(
+			w,
+			r,
+			groupID,
+		)
+
+		return
+	}
+
+	if len(parts) == 2 &&
+		parts[1] == "invite-candidates" {
+
+		if r.Method != http.MethodGet {
+			errorJSON(
+				w,
+				"method not allowed",
+				http.StatusMethodNotAllowed,
+			)
+			return
+		}
+
+		listGroupInviteCandidatesHandler(
+			w,
+			r,
+			groupID,
+		)
+
 		return
 	}
 
@@ -224,40 +284,97 @@ func createGroupHandler(w http.ResponseWriter, r *http.Request) {
 	description := strings.TrimSpace(req.Description)
 
 	if title == "" {
-		errorJSON(w, "group title is required", http.StatusBadRequest)
+		errorJSON(
+			w,
+			"group title is required",
+			http.StatusBadRequest,
+		)
 		return
 	}
 
-	result, err := db.Exec(`
-		INSERT INTO groups (creator_id, title, description)
+	tx, err := db.Begin()
+	if err != nil {
+		errorJSON(
+			w,
+			"could not start transaction",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	defer tx.Rollback()
+
+	result, err := tx.Exec(`
+		INSERT INTO groups (
+			creator_id,
+			title,
+			description
+		)
 		VALUES (?, ?, ?)
-	`, currentUserID, title, description)
+	`,
+		currentUserID,
+		title,
+		description,
+	)
 
 	if err != nil {
-		errorJSON(w, "could not create group", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"could not create group",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
 	groupID, err := result.LastInsertId()
 	if err != nil {
-		errorJSON(w, "group created but could not read group id", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"could not read group id",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
-	_, err = db.Exec(`
-		INSERT INTO group_members (group_id, user_id, role)
+	_, err = tx.Exec(`
+		INSERT INTO group_members (
+			group_id,
+			user_id,
+			role
+		)
 		VALUES (?, ?, 'owner')
-	`, groupID, currentUserID)
+	`,
+		groupID,
+		currentUserID,
+	)
 
 	if err != nil {
-		errorJSON(w, "group created but could not add owner as member", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"could not add group owner",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, map[string]interface{}{
-		"message":  "group created successfully",
-		"group_id": groupID,
-	})
+	err = tx.Commit()
+	if err != nil {
+		errorJSON(
+			w,
+			"could not create group",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	writeJSON(
+		w,
+		http.StatusCreated,
+		map[string]interface{}{
+			"message":  "group created successfully",
+			"group_id": groupID,
+		},
+	)
 }
 
 func getGroupMembershipStatus(userID int, groupID int) (string, error) {
@@ -356,26 +473,202 @@ func isGroupOwner(userID int, groupID int) (bool, error) {
 	return count > 0, nil
 }
 
-func listGroupsHandler(w http.ResponseWriter, r *http.Request) {
-	currentUserID := r.Context().Value(userIDKey).(int)
+func listGroupsHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	currentUserID :=
+		r.Context().Value(userIDKey).(int)
+
+	// PAGINATION
+
+	limit := 20
+
+	if rawLimit :=
+		r.URL.Query().Get("limit"); rawLimit != "" {
+
+		parsedLimit, err :=
+			strconv.Atoi(rawLimit)
+
+		if err != nil ||
+			parsedLimit <= 0 ||
+			parsedLimit > 50 {
+
+			errorJSON(
+				w,
+				"invalid group limit",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		limit = parsedLimit
+	}
+
+	offset := 0
+
+	if rawOffset :=
+		r.URL.Query().Get("offset"); rawOffset != "" {
+
+		parsedOffset, err :=
+			strconv.Atoi(rawOffset)
+
+		if err != nil ||
+			parsedOffset < 0 {
+
+			errorJSON(
+				w,
+				"invalid group offset",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		offset = parsedOffset
+	}
+
+	// SEARCH
+
+	searchQuery :=
+		strings.ToLower(
+			strings.TrimSpace(
+				r.URL.Query().Get("q"),
+			),
+		)
+
+	searchPattern :=
+		"%" + searchQuery + "%"
 
 	rows, err := db.Query(`
 		SELECT
 			groups.id,
 			groups.creator_id,
-			users.first_name || ' ' || users.last_name AS creator_name,
+
+			users.first_name || ' ' ||
+				users.last_name
+				AS creator_name,
+
 			groups.title,
 			groups.description,
-			groups.created_at
+			groups.created_at,
+
+			(
+				SELECT COUNT(*)
+				FROM group_members
+				WHERE
+					group_members.group_id =
+						groups.id
+			) AS member_count,
+
+			CASE
+
+				WHEN EXISTS (
+					SELECT 1
+					FROM group_members
+					WHERE
+						group_members.group_id =
+							groups.id
+						AND
+						group_members.user_id = ?
+						AND
+						group_members.role =
+							'owner'
+				)
+				THEN 'owner'
+
+				WHEN EXISTS (
+					SELECT 1
+					FROM group_members
+					WHERE
+						group_members.group_id =
+							groups.id
+						AND
+						group_members.user_id = ?
+				)
+				THEN 'member'
+
+				WHEN EXISTS (
+					SELECT 1
+					FROM group_join_requests
+					WHERE
+						group_join_requests.group_id =
+							groups.id
+						AND
+						group_join_requests.requester_id = ?
+						AND
+						group_join_requests.status =
+							'pending'
+				)
+				THEN 'pending'
+
+				WHEN EXISTS (
+					SELECT 1
+					FROM group_invitations
+					WHERE
+						group_invitations.group_id =
+							groups.id
+						AND
+						group_invitations.invitee_id = ?
+						AND
+						group_invitations.status =
+							'pending'
+				)
+				THEN 'invited'
+
+				ELSE 'none'
+
+			END AS membership_status
+
 		FROM groups
-		JOIN users ON users.id = groups.creator_id
-		ORDER BY groups.created_at DESC
-	`)
+
+		JOIN users
+			ON users.id =
+				groups.creator_id
+
+		WHERE (
+			? = ''
+
+			OR LOWER(
+				groups.title
+			) LIKE ?
+
+			OR LOWER(
+				COALESCE(
+					groups.description,
+					''
+				)
+			) LIKE ?
+		)
+
+		ORDER BY
+			groups.created_at DESC,
+			groups.id DESC
+
+		LIMIT ?
+		OFFSET ?
+	`,
+		currentUserID,
+		currentUserID,
+		currentUserID,
+		currentUserID,
+
+		searchQuery,
+		searchPattern,
+		searchPattern,
+
+		limit+1,
+		offset,
+	)
 
 	if err != nil {
-		errorJSON(w, "could not load groups", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"could not load groups",
+			http.StatusInternalServerError,
+		)
 		return
 	}
+
 	defer rows.Close()
 
 	groups := []GroupResponse{}
@@ -390,34 +683,51 @@ func listGroupsHandler(w http.ResponseWriter, r *http.Request) {
 			&group.Title,
 			&group.Description,
 			&group.CreatedAt,
+			&group.MemberCount,
+			&group.MembershipStatus,
 		)
 
 		if err != nil {
-			errorJSON(w, "could not read group data", http.StatusInternalServerError)
+			errorJSON(
+				w,
+				"could not read group data",
+				http.StatusInternalServerError,
+			)
 			return
 		}
 
-		group.MemberCount, err = countGroupMembers(group.ID)
-		if err != nil {
-			errorJSON(w, "could not count group members", http.StatusInternalServerError)
-			return
-		}
-
-		group.MembershipStatus, err = getGroupMembershipStatus(currentUserID, group.ID)
-		if err != nil {
-			errorJSON(w, "could not check group membership", http.StatusInternalServerError)
-			return
-		}
-
-		groups = append(groups, group)
+		groups =
+			append(groups, group)
 	}
 
 	if err := rows.Err(); err != nil {
-		errorJSON(w, "error while reading groups", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"error while reading groups",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, groups)
+	hasMore :=
+		len(groups) > limit
+
+	if hasMore {
+		groups =
+			groups[:limit]
+	}
+
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]interface{}{
+			"groups": groups,
+
+			"has_more": hasMore,
+
+			"next_offset": offset + len(groups),
+		},
+	)
 }
 
 func getGroupHandler(w http.ResponseWriter, r *http.Request, groupID int) {
@@ -596,6 +906,7 @@ func listGroupJoinRequestsHandler(w http.ResponseWriter, r *http.Request, groupI
 			group_join_requests.requester_id,
 			users.first_name || ' ' || users.last_name AS requester_name,
 			COALESCE(users.nickname, '') AS requester_nickname,
+			COALESCE(users.avatar_path, '') AS requester_avatar_path,
 			group_join_requests.status,
 			group_join_requests.created_at
 		FROM group_join_requests
@@ -622,6 +933,7 @@ func listGroupJoinRequestsHandler(w http.ResponseWriter, r *http.Request, groupI
 			&request.RequesterID,
 			&request.RequesterName,
 			&request.RequesterNickname,
+			&request.RequesterAvatarPath,
 			&request.Status,
 			&request.CreatedAt,
 		)
@@ -642,77 +954,186 @@ func listGroupJoinRequestsHandler(w http.ResponseWriter, r *http.Request, groupI
 	writeJSON(w, http.StatusOK, requests)
 }
 
-func acceptGroupJoinRequestHandler(w http.ResponseWriter, r *http.Request, groupID int, requestID int) {
+func acceptGroupJoinRequestHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+	groupID int,
+	requestID int,
+) {
 	currentUserID := r.Context().Value(userIDKey).(int)
 
-	owner, err := isGroupOwner(currentUserID, groupID)
+	owner, err := isGroupOwner(
+		currentUserID,
+		groupID,
+	)
 	if err != nil {
-		errorJSON(w, "could not check group ownership", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"could not check group ownership",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
 	if !owner {
-		errorJSON(w, "only the group owner can accept join requests", http.StatusForbidden)
+		errorJSON(
+			w,
+			"only the group owner can accept join requests",
+			http.StatusForbidden,
+		)
 		return
 	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		errorJSON(
+			w,
+			"could not start transaction",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	defer tx.Rollback()
 
 	var requesterID int
 	var status string
 
-	err = db.QueryRow(`
-		SELECT requester_id, status
+	err = tx.QueryRow(`
+		SELECT
+			requester_id,
+			status
 		FROM group_join_requests
 		WHERE id = ?
 		  AND group_id = ?
-	`, requestID, groupID).Scan(&requesterID, &status)
+	`,
+		requestID,
+		groupID,
+	).Scan(
+		&requesterID,
+		&status,
+	)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			errorJSON(w, "join request not found", http.StatusNotFound)
+			errorJSON(
+				w,
+				"join request not found",
+				http.StatusNotFound,
+			)
 			return
 		}
 
-		errorJSON(w, "could not load join request", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"could not load join request",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
 	if status != "pending" {
-		errorJSON(w, "join request is not pending", http.StatusBadRequest)
+		errorJSON(
+			w,
+			"join request is not pending",
+			http.StatusBadRequest,
+		)
 		return
 	}
 
-	_, err = db.Exec(`
-		INSERT OR IGNORE INTO group_members (group_id, user_id, role)
+	_, err = tx.Exec(`
+		INSERT OR IGNORE INTO group_members (
+			group_id,
+			user_id,
+			role
+		)
 		VALUES (?, ?, 'member')
-	`, groupID, requesterID)
+	`,
+		groupID,
+		requesterID,
+	)
 
 	if err != nil {
-		errorJSON(w, "could not add user to group", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"could not add user to group",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
-	_, err = db.Exec(`
+	result, err := tx.Exec(`
 		UPDATE group_join_requests
-		SET status = 'accepted',
-		    updated_at = CURRENT_TIMESTAMP
+		SET
+			status = 'accepted',
+			updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
 		  AND group_id = ?
-	`, requestID, groupID)
+		  AND status = 'pending'
+	`,
+		requestID,
+		groupID,
+	)
 
 	if err != nil {
-		errorJSON(w, "could not update join request", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"could not update join request",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
-	err = notifyGroupJoinRequestAccepted(requesterID, currentUserID, groupID)
+	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		errorJSON(w, "join request accepted but notification failed", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"could not verify join request update",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{
-		"message": "join request accepted",
-	})
+	if rowsAffected == 0 {
+		errorJSON(
+			w,
+			"join request is no longer pending",
+			http.StatusConflict,
+		)
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		errorJSON(
+			w,
+			"could not accept join request",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	err = notifyGroupJoinRequestAccepted(
+		requesterID,
+		currentUserID,
+		groupID,
+	)
+
+	if err != nil {
+		log.Printf(
+			"group join request %d accepted, but notification failed: %v",
+			requestID,
+			err,
+		)
+	}
+
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]string{
+			"message": "join request accepted",
+		},
+	)
 }
 
 func declineGroupJoinRequestHandler(w http.ResponseWriter, r *http.Request, groupID int, requestID int) {
@@ -807,6 +1228,170 @@ func cancelGroupJoinRequestHandler(w http.ResponseWriter, r *http.Request, group
 	writeJSON(w, http.StatusOK, map[string]string{
 		"message": "join request cancelled",
 	})
+}
+
+func leaveGroupHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+	groupID int,
+) {
+	currentUserID :=
+		r.Context().
+			Value(userIDKey).(int)
+
+	exists, err :=
+		groupExists(groupID)
+
+	if err != nil {
+		errorJSON(
+			w,
+			"could not check group",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	if !exists {
+		errorJSON(
+			w,
+			"group not found",
+			http.StatusNotFound,
+		)
+		return
+	}
+
+	status, err :=
+		getGroupMembershipStatus(
+			currentUserID,
+			groupID,
+		)
+
+	if err != nil {
+		errorJSON(
+			w,
+			"could not check group membership",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	if status == "owner" {
+		errorJSON(
+			w,
+			"group owner cannot leave the group",
+			http.StatusBadRequest,
+		)
+		return
+	}
+
+	if status != "member" {
+		errorJSON(
+			w,
+			"you are not a member of this group",
+			http.StatusBadRequest,
+		)
+		return
+	}
+
+	tx, err := db.Begin()
+
+	if err != nil {
+		errorJSON(
+			w,
+			"could not start transaction",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`
+		DELETE FROM
+			group_event_responses
+
+		WHERE
+			user_id = ?
+
+			AND event_id IN (
+				SELECT id
+				FROM group_events
+				WHERE group_id = ?
+			)
+	`,
+		currentUserID,
+		groupID,
+	)
+
+	if err != nil {
+		errorJSON(
+			w,
+			"could not remove group event responses",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	result, err := tx.Exec(`
+		DELETE FROM group_members
+
+		WHERE
+			group_id = ?
+			AND user_id = ?
+			AND role = 'member'
+	`,
+		groupID,
+		currentUserID,
+	)
+
+	if err != nil {
+		errorJSON(
+			w,
+			"could not leave group",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	rowsAffected, err :=
+		result.RowsAffected()
+
+	if err != nil {
+		errorJSON(
+			w,
+			"could not verify group membership",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	if rowsAffected == 0 {
+		errorJSON(
+			w,
+			"group membership no longer exists",
+			http.StatusConflict,
+		)
+		return
+	}
+
+	err = tx.Commit()
+
+	if err != nil {
+		errorJSON(
+			w,
+			"could not leave group",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]string{
+			"message": "you left the group",
+		},
+	)
 }
 
 func createGroupInvitationHandler(w http.ResponseWriter, r *http.Request, groupID int) {
@@ -938,10 +1523,19 @@ func createGroupInvitationHandler(w http.ResponseWriter, r *http.Request, groupI
 		return
 	}
 
-	err = notifyGroupInvitationReceived(req.InviteeID, currentUserID, groupID)
+	err = notifyGroupInvitationReceived(
+		req.InviteeID,
+		currentUserID,
+		groupID,
+	)
+
 	if err != nil {
-		errorJSON(w, "invitation created but notification failed", http.StatusInternalServerError)
-		return
+		log.Printf(
+			"group invitation to user %d for group %d created, but notification failed: %v",
+			req.InviteeID,
+			groupID,
+			err,
+		)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{
@@ -971,9 +1565,11 @@ func listGroupInvitationsHandler(w http.ResponseWriter, r *http.Request, groupID
 			groups.title,
 			group_invitations.inviter_id,
 			inviter.first_name || ' ' || inviter.last_name AS inviter_name,
+			COALESCE(inviter.avatar_path, '') AS inviter_avatar_path,
 			group_invitations.invitee_id,
 			invitee.first_name || ' ' || invitee.last_name AS invitee_name,
 			COALESCE(invitee.nickname, '') AS invitee_nickname,
+			COALESCE(invitee.avatar_path, '') AS invitee_avatar_path,
 			group_invitations.status,
 			group_invitations.created_at
 		FROM group_invitations
@@ -1001,9 +1597,11 @@ func listGroupInvitationsHandler(w http.ResponseWriter, r *http.Request, groupID
 			&invitation.GroupTitle,
 			&invitation.InviterID,
 			&invitation.InviterName,
+			&invitation.InviterAvatarPath,
 			&invitation.InviteeID,
 			&invitation.InviteeName,
 			&invitation.InviteeNickname,
+			&invitation.InviteeAvatarPath,
 			&invitation.Status,
 			&invitation.CreatedAt,
 		)
@@ -1080,9 +1678,11 @@ func listMyGroupInvitationsHandler(w http.ResponseWriter, r *http.Request) {
 			groups.title,
 			group_invitations.inviter_id,
 			inviter.first_name || ' ' || inviter.last_name AS inviter_name,
+			COALESCE(inviter.avatar_path, '') AS inviter_avatar_path,
 			group_invitations.invitee_id,
 			invitee.first_name || ' ' || invitee.last_name AS invitee_name,
 			COALESCE(invitee.nickname, '') AS invitee_nickname,
+			COALESCE(invitee.avatar_path, '') AS invitee_avatar_path,
 			group_invitations.status,
 			group_invitations.created_at
 		FROM group_invitations
@@ -1111,9 +1711,11 @@ func listMyGroupInvitationsHandler(w http.ResponseWriter, r *http.Request) {
 			&invitation.GroupTitle,
 			&invitation.InviterID,
 			&invitation.InviterName,
+			&invitation.InviterAvatarPath,
 			&invitation.InviteeID,
 			&invitation.InviteeName,
 			&invitation.InviteeNickname,
+			&invitation.InviteeAvatarPath,
 			&invitation.Status,
 			&invitation.CreatedAt,
 		)
@@ -1134,71 +1736,174 @@ func listMyGroupInvitationsHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, invitations)
 }
 
-func acceptGroupInvitationHandler(w http.ResponseWriter, r *http.Request, invitationID int) {
+func acceptGroupInvitationHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+	invitationID int,
+) {
 	currentUserID := r.Context().Value(userIDKey).(int)
+
+	tx, err := db.Begin()
+	if err != nil {
+		errorJSON(
+			w,
+			"could not start transaction",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	defer tx.Rollback()
 
 	var groupID int
 	var inviterID int
 	var inviteeID int
 	var status string
 
-	err := db.QueryRow(`
-		SELECT group_id, inviter_id, invitee_id, status
+	err = tx.QueryRow(`
+		SELECT
+			group_id,
+			inviter_id,
+			invitee_id,
+			status
 		FROM group_invitations
 		WHERE id = ?
-	`, invitationID).Scan(&groupID, &inviterID, &inviteeID, &status)
+	`, invitationID).Scan(
+		&groupID,
+		&inviterID,
+		&inviteeID,
+		&status,
+	)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			errorJSON(w, "invitation not found", http.StatusNotFound)
+			errorJSON(
+				w,
+				"invitation not found",
+				http.StatusNotFound,
+			)
 			return
 		}
 
-		errorJSON(w, "could not load invitation", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"could not load invitation",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
 	if inviteeID != currentUserID {
-		errorJSON(w, "you cannot accept this invitation", http.StatusForbidden)
+		errorJSON(
+			w,
+			"you cannot accept this invitation",
+			http.StatusForbidden,
+		)
 		return
 	}
 
 	if status != "pending" {
-		errorJSON(w, "invitation is not pending", http.StatusBadRequest)
+		errorJSON(
+			w,
+			"invitation is not pending",
+			http.StatusBadRequest,
+		)
 		return
 	}
 
-	_, err = db.Exec(`
-		INSERT OR IGNORE INTO group_members (group_id, user_id, role)
+	_, err = tx.Exec(`
+		INSERT OR IGNORE INTO group_members (
+			group_id,
+			user_id,
+			role
+		)
 		VALUES (?, ?, 'member')
-	`, groupID, currentUserID)
+	`,
+		groupID,
+		currentUserID,
+	)
 
 	if err != nil {
-		errorJSON(w, "could not add you to group", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"could not add you to group",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
-	_, err = db.Exec(`
+	result, err := tx.Exec(`
 		UPDATE group_invitations
-		SET status = 'accepted',
-		    updated_at = CURRENT_TIMESTAMP
+		SET
+			status = 'accepted',
+			updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
-	`, invitationID)
+		  AND invitee_id = ?
+		  AND status = 'pending'
+	`,
+		invitationID,
+		currentUserID,
+	)
 
 	if err != nil {
-		errorJSON(w, "could not update invitation", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"could not update invitation",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
-	err = notifyGroupInvitationAccepted(inviterID, currentUserID, groupID)
+	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		errorJSON(w, "invitation accepted but notification failed", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"could not verify invitation update",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{
-		"message": "group invitation accepted",
-	})
+	if rowsAffected == 0 {
+		errorJSON(
+			w,
+			"invitation is no longer pending",
+			http.StatusConflict,
+		)
+		return
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		errorJSON(
+			w,
+			"could not accept invitation",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	err = notifyGroupInvitationAccepted(
+		inviterID,
+		currentUserID,
+		groupID,
+	)
+
+	if err != nil {
+		log.Printf(
+			"group invitation %d accepted, but notification failed: %v",
+			invitationID,
+			err,
+		)
+	}
+
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]string{
+			"message": "group invitation accepted",
+		},
+	)
 }
 
 func declineGroupInvitationHandler(w http.ResponseWriter, r *http.Request, invitationID int) {
@@ -1248,4 +1953,450 @@ func declineGroupInvitationHandler(w http.ResponseWriter, r *http.Request, invit
 	writeJSON(w, http.StatusOK, map[string]string{
 		"message": "group invitation declined",
 	})
+}
+
+func listGroupMembersHandler(w http.ResponseWriter, r *http.Request, groupID int) {
+	_, ok :=
+		requireGroupMember(w, r, groupID)
+
+	if !ok {
+		return
+	}
+
+	limit := 20
+
+	if rawLimit :=
+		r.URL.Query().Get("limit"); rawLimit != "" {
+
+		parsedLimit, err :=
+			strconv.Atoi(rawLimit)
+
+		if err != nil ||
+			parsedLimit <= 0 ||
+			parsedLimit > 50 {
+
+			errorJSON(
+				w,
+				"invalid member limit",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		limit = parsedLimit
+	}
+
+	offset := 0
+
+	if rawOffset :=
+		r.URL.Query().Get("offset"); rawOffset != "" {
+
+		parsedOffset, err :=
+			strconv.Atoi(rawOffset)
+
+		if err != nil ||
+			parsedOffset < 0 {
+
+			errorJSON(
+				w,
+				"invalid member offset",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		offset = parsedOffset
+	}
+
+	searchQuery :=
+		strings.ToLower(
+			strings.TrimSpace(
+				r.URL.Query().Get("q"),
+			),
+		)
+
+	searchPattern :=
+		"%" + searchQuery + "%"
+
+	rows, err := db.Query(`
+		SELECT
+			users.id,
+			users.first_name,
+			users.last_name,
+
+			COALESCE(users.nickname, ''),
+			COALESCE(users.avatar_path, ''),
+
+			group_members.role
+
+		FROM group_members
+
+		JOIN users
+			ON users.id =
+				group_members.user_id
+
+		WHERE
+			group_members.group_id = ?
+
+			AND (
+				? = ''
+
+				OR LOWER(
+					users.first_name
+				) LIKE ?
+
+				OR LOWER(
+					users.last_name
+				) LIKE ?
+
+				OR LOWER(
+					users.first_name ||
+					' ' ||
+					users.last_name
+				) LIKE ?
+
+				OR LOWER(
+					COALESCE(
+						users.nickname,
+						''
+					)
+				) LIKE ?
+			)
+
+		ORDER BY
+			CASE
+				WHEN group_members.role =
+					'owner'
+				THEN 0
+				ELSE 1
+			END,
+
+			LOWER(users.first_name),
+			LOWER(users.last_name),
+			users.id
+
+		LIMIT ?
+		OFFSET ?
+	`,
+		groupID,
+
+		searchQuery,
+		searchPattern,
+		searchPattern,
+		searchPattern,
+		searchPattern,
+
+		limit+1,
+		offset,
+	)
+
+	if err != nil {
+		errorJSON(
+			w,
+			"could not load group members",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	defer rows.Close()
+
+	members :=
+		[]GroupMemberListItem{}
+
+	for rows.Next() {
+		var member GroupMemberListItem
+
+		err := rows.Scan(
+			&member.ID,
+			&member.FirstName,
+			&member.LastName,
+			&member.Nickname,
+			&member.AvatarPath,
+			&member.Role,
+		)
+
+		if err != nil {
+			errorJSON(
+				w,
+				"could not read group member",
+				http.StatusInternalServerError,
+			)
+			return
+		}
+
+		members =
+			append(
+				members,
+				member,
+			)
+	}
+
+	if err := rows.Err(); err != nil {
+		errorJSON(
+			w,
+			"error while reading group members",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	hasMore :=
+		len(members) > limit
+
+	if hasMore {
+		members =
+			members[:limit]
+	}
+
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]interface{}{
+			"members": members,
+
+			"has_more": hasMore,
+
+			"next_offset": offset + len(members),
+		},
+	)
+}
+
+func listGroupInviteCandidatesHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+	groupID int,
+) {
+	currentUserID, ok :=
+		requireGroupMember(
+			w,
+			r,
+			groupID,
+		)
+
+	if !ok {
+		return
+	}
+
+	limit := 10
+
+	if rawLimit :=
+		r.URL.Query().Get("limit"); rawLimit != "" {
+
+		parsedLimit, err :=
+			strconv.Atoi(rawLimit)
+
+		if err != nil ||
+			parsedLimit <= 0 ||
+			parsedLimit > 50 {
+
+			errorJSON(
+				w,
+				"invalid invite candidate limit",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		limit = parsedLimit
+	}
+
+	offset := 0
+
+	if rawOffset :=
+		r.URL.Query().Get("offset"); rawOffset != "" {
+
+		parsedOffset, err :=
+			strconv.Atoi(rawOffset)
+
+		if err != nil ||
+			parsedOffset < 0 {
+
+			errorJSON(
+				w,
+				"invalid invite candidate offset",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		offset = parsedOffset
+	}
+
+	searchQuery :=
+		strings.ToLower(
+			strings.TrimSpace(
+				r.URL.Query().Get("q"),
+			),
+		)
+
+	searchPattern :=
+		"%" + searchQuery + "%"
+
+	rows, err := db.Query(`
+		SELECT
+			users.id,
+			users.first_name,
+			users.last_name,
+
+			COALESCE(
+				users.nickname,
+				''
+			)
+
+		FROM users
+
+		WHERE
+			users.id != ?
+
+			AND NOT EXISTS (
+				SELECT 1
+				FROM group_members
+				WHERE
+					group_members.group_id = ?
+					AND
+					group_members.user_id =
+						users.id
+			)
+
+			AND NOT EXISTS (
+				SELECT 1
+				FROM group_join_requests
+				WHERE
+					group_join_requests.group_id = ?
+					AND
+					group_join_requests.requester_id =
+						users.id
+					AND
+					group_join_requests.status =
+						'pending'
+			)
+
+			AND NOT EXISTS (
+				SELECT 1
+				FROM group_invitations
+				WHERE
+					group_invitations.group_id = ?
+					AND
+					group_invitations.invitee_id =
+						users.id
+					AND
+					group_invitations.status =
+						'pending'
+			)
+
+			AND (
+				? = ''
+
+				OR LOWER(
+					users.first_name
+				) LIKE ?
+
+				OR LOWER(
+					users.last_name
+				) LIKE ?
+
+				OR LOWER(
+					users.first_name ||
+					' ' ||
+					users.last_name
+				) LIKE ?
+
+				OR LOWER(
+					COALESCE(
+						users.nickname,
+						''
+					)
+				) LIKE ?
+			)
+
+		ORDER BY
+			LOWER(users.first_name),
+			LOWER(users.last_name),
+			users.id
+
+		LIMIT ?
+		OFFSET ?
+	`,
+		currentUserID,
+
+		groupID,
+		groupID,
+		groupID,
+
+		searchQuery,
+		searchPattern,
+		searchPattern,
+		searchPattern,
+		searchPattern,
+
+		limit+1,
+		offset,
+	)
+
+	if err != nil {
+		errorJSON(
+			w,
+			"could not load invite candidates",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	defer rows.Close()
+
+	users :=
+		[]GroupInviteCandidate{}
+
+	for rows.Next() {
+		var user GroupInviteCandidate
+
+		err := rows.Scan(
+			&user.ID,
+			&user.FirstName,
+			&user.LastName,
+			&user.Nickname,
+		)
+
+		if err != nil {
+			errorJSON(
+				w,
+				"could not read invite candidate",
+				http.StatusInternalServerError,
+			)
+			return
+		}
+
+		users =
+			append(users, user)
+	}
+
+	if err := rows.Err(); err != nil {
+		errorJSON(
+			w,
+			"error while reading invite candidates",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	hasMore :=
+		len(users) > limit
+
+	if hasMore {
+		users =
+			users[:limit]
+	}
+
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]interface{}{
+			"users": users,
+
+			"has_more": hasMore,
+
+			"next_offset": offset + len(users),
+		},
+	)
 }

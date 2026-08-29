@@ -51,31 +51,130 @@ func notificationSubroutesHandler(w http.ResponseWriter, r *http.Request) {
 	markNotificationReadHandler(w, r, notificationID)
 }
 
-func listNotificationsHandler(w http.ResponseWriter, r *http.Request) {
-	currentUserID := r.Context().Value(userIDKey).(int)
+func listNotificationsHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	currentUserID :=
+		r.Context().Value(userIDKey).(int)
 
+	limit := 20
+
+	if rawLimit :=
+		r.URL.Query().Get("limit"); rawLimit != "" {
+
+		parsedLimit, err :=
+			strconv.Atoi(rawLimit)
+
+		if err != nil ||
+			parsedLimit <= 0 ||
+			parsedLimit > 100 {
+
+			errorJSON(
+				w,
+				"invalid notification limit",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		limit = parsedLimit
+	}
+
+	offset := 0
+
+	if rawOffset :=
+		r.URL.Query().Get("offset"); rawOffset != "" {
+
+		parsedOffset, err :=
+			strconv.Atoi(rawOffset)
+
+		if err != nil ||
+			parsedOffset < 0 {
+
+			errorJSON(
+				w,
+				"invalid notification offset",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		offset = parsedOffset
+	}
+
+	filter :=
+		strings.ToLower(
+			strings.TrimSpace(
+				r.URL.Query().Get("filter"),
+			),
+		)
+
+	if filter == "" {
+		filter = "all"
+	}
+
+	if filter != "all" &&
+		filter != "unread" {
+
+		errorJSON(
+			w,
+			"invalid notification filter",
+			http.StatusBadRequest,
+		)
+		return
+	}
 	rows, err := db.Query(`
 		SELECT
 			id,
 			user_id,
-			COALESCE(requester_id, 0),
+			COALESCE(
+				requester_id,
+				0
+			),
 			type,
 			message,
 			link_path,
 			is_read,
 			created_at
+
 		FROM notifications
-		WHERE user_id = ?
-		ORDER BY created_at DESC
-	`, currentUserID)
+
+		WHERE
+			user_id = ?
+
+			AND (
+				? = 'all'
+				OR
+				is_read = 0
+			)
+
+		ORDER BY
+			created_at DESC,
+			id DESC
+
+		LIMIT ?
+		OFFSET ?
+	`,
+		currentUserID,
+		filter,
+		limit+1,
+		offset,
+	)
 
 	if err != nil {
-		errorJSON(w, "could not load notifications", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"could not load notifications",
+			http.StatusInternalServerError,
+		)
 		return
 	}
+
 	defer rows.Close()
 
-	notifications := []NotificationResponse{}
+	notifications :=
+		[]NotificationResponse{}
 
 	for rows.Next() {
 		var notification NotificationResponse
@@ -93,21 +192,76 @@ func listNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 		)
 
 		if err != nil {
-			errorJSON(w, "could not read notification data", http.StatusInternalServerError)
+			errorJSON(
+				w,
+				"could not read notification data",
+				http.StatusInternalServerError,
+			)
 			return
 		}
 
-		notification.IsRead = isReadInt == 1
+		notification.IsRead =
+			isReadInt == 1
 
-		notifications = append(notifications, notification)
+		notifications =
+			append(
+				notifications,
+				notification,
+			)
 	}
 
 	if err := rows.Err(); err != nil {
-		errorJSON(w, "error while reading notifications", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"error while reading notifications",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, notifications)
+	hasMore :=
+		len(notifications) > limit
+
+	if hasMore {
+		notifications =
+			notifications[:limit]
+	}
+
+	var unreadCount int
+
+	err = db.QueryRow(`
+		SELECT COUNT(*)
+		FROM notifications
+		WHERE
+			user_id = ?
+			AND is_read = 0
+	`,
+		currentUserID,
+	).Scan(&unreadCount)
+
+	if err != nil {
+		errorJSON(
+			w,
+			"could not count unread notifications",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]interface{}{
+			"notifications": notifications,
+
+			"has_more": hasMore,
+
+			"next_offset": offset +
+				len(notifications),
+
+			"unread_count": unreadCount,
+		},
+	)
 }
 
 func markNotificationReadHandler(w http.ResponseWriter, r *http.Request, notificationID int) {
@@ -266,7 +420,7 @@ func notifyFollowRequestReceived(targetUserID int, requesterID int) error {
 		targetUserID,
 		requesterID,
 		"follow_request",
-		requesterName+" wants to follow you.",
+		requesterName+" wants to follow you",
 		fmt.Sprintf("/profiles/%d", requesterID),
 	)
 }
@@ -278,7 +432,7 @@ func notifyFollowRequestAccepted(requesterID int, accepterID int) error {
 		requesterID,
 		accepterID,
 		"follow_accepted",
-		accepterName+" accepted your follow request.",
+		accepterName+" accepted your follow request",
 		fmt.Sprintf("/profiles/%d", accepterID),
 	)
 }
@@ -325,7 +479,7 @@ func notifyGroupJoinRequestReceived(groupID int, requesterID int) error {
 		ownerID,
 		requesterID,
 		"group_join_request",
-		requesterName+" requested to join your group: "+groupTitle+".",
+		requesterName+" requested to join your group: "+groupTitle+"",
 		fmt.Sprintf("/groups/%d", groupID),
 	)
 }
@@ -338,7 +492,7 @@ func notifyGroupJoinRequestAccepted(requesterID int, ownerID int, groupID int) e
 		requesterID,
 		ownerID,
 		"group_join_accepted",
-		ownerName+" accepted your request to join: "+groupTitle+".",
+		ownerName+" accepted your request to join: "+groupTitle,
 		fmt.Sprintf("/groups/%d", groupID),
 	)
 }
@@ -351,7 +505,7 @@ func notifyGroupJoinRequestDeclined(requesterID int, ownerID int, groupID int) e
 		requesterID,
 		ownerID,
 		"group_join_declined",
-		ownerName+" declined your request to join: "+groupTitle+".",
+		ownerName+" declined your request to join: "+groupTitle,
 		fmt.Sprintf("/groups/%d", groupID),
 	)
 }
@@ -364,7 +518,7 @@ func notifyGroupInvitationReceived(inviteeID int, inviterID int, groupID int) er
 		inviteeID,
 		inviterID,
 		"group_invitation",
-		inviterName+" invited you to join: "+groupTitle+".",
+		inviterName+" invited you to join: "+groupTitle,
 		fmt.Sprintf("/groups/%d", groupID),
 	)
 }
@@ -377,7 +531,7 @@ func notifyGroupInvitationAccepted(inviterID int, inviteeID int, groupID int) er
 		inviterID,
 		inviteeID,
 		"group_invitation_accepted",
-		inviteeName+" accepted your invitation to join: "+groupTitle+".",
+		inviteeName+" accepted your invitation to join: "+groupTitle,
 		fmt.Sprintf("/groups/%d", groupID),
 	)
 }
@@ -401,7 +555,7 @@ func notifyGroupEventCreated(groupID int, creatorID int, eventTitle string) erro
 			creatorID,
 			"group_event_created",
 			fmt.Sprintf(
-				"%s created a new event \"%s\" in %s.",
+				"%s created a new event \"%s\" in %s",
 				creatorName,
 				eventTitle,
 				groupTitle,

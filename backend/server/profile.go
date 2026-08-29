@@ -2,7 +2,6 @@ package server
 
 import (
 	"database/sql"
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -298,53 +297,223 @@ func listProfilePostsHandler(w http.ResponseWriter, r *http.Request, profileUser
 	writeJSON(w, http.StatusOK, posts)
 }
 
-func updateMyProfileHandler(w http.ResponseWriter, r *http.Request, currentUserID int) {
-	var req UpdateProfileRequest
+func updateMyProfileHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+	currentUserID int,
+) {
+	r.Body = http.MaxBytesReader(
+		w,
+		r.Body,
+		maxUploadSize,
+	)
 
-	err := json.NewDecoder(r.Body).Decode(&req)
+	err := r.ParseMultipartForm(maxUploadSize)
 	if err != nil {
-		errorJSON(w, "invalid JSON body", http.StatusBadRequest)
+		errorJSON(
+			w,
+			"could not read profile form",
+			http.StatusBadRequest,
+		)
 		return
 	}
 
-	nickname := strings.TrimSpace(req.Nickname)
-	aboutMe := strings.TrimSpace(req.AboutMe)
+	email := strings.TrimSpace(
+		r.FormValue("email"),
+	)
 
-	var isPublicInt int
+	firstName := strings.TrimSpace(
+		r.FormValue("first_name"),
+	)
 
-	if req.IsPublic == nil {
-		err = db.QueryRow(`
-			SELECT is_public
-			FROM users
-			WHERE id = ?
-		`, currentUserID).Scan(&isPublicInt)
+	lastName := strings.TrimSpace(
+		r.FormValue("last_name"),
+	)
 
-		if err != nil {
-			errorJSON(w, "could not read current profile status", http.StatusInternalServerError)
+	dateOfBirth := strings.TrimSpace(
+		r.FormValue("date_of_birth"),
+	)
+
+	nickname := strings.TrimSpace(
+		r.FormValue("nickname"),
+	)
+
+	aboutMe := strings.TrimSpace(
+		r.FormValue("about_me"),
+	)
+
+	isPublicRaw := strings.TrimSpace(
+		r.FormValue("is_public"),
+	)
+
+	if email == "" ||
+		firstName == "" ||
+		lastName == "" ||
+		dateOfBirth == "" {
+
+		errorJSON(
+			w,
+			"email, first name, last name and date of birth are required",
+			http.StatusBadRequest,
+		)
+		return
+	}
+
+	isPublic, err := strconv.ParseBool(
+		isPublicRaw,
+	)
+
+	if err != nil {
+		errorJSON(
+			w,
+			"invalid profile visibility",
+			http.StatusBadRequest,
+		)
+		return
+	}
+
+	isPublicInt := 0
+
+	if isPublic {
+		isPublicInt = 1
+	}
+
+	// Check whether another user already owns this email.
+	var existingUserID int
+
+	err = db.QueryRow(`
+		SELECT id
+		FROM users
+		WHERE email = ?
+		  AND id != ?
+		LIMIT 1
+	`,
+		email,
+		currentUserID,
+	).Scan(&existingUserID)
+
+	if err == nil {
+		errorJSON(
+			w,
+			"email is already in use",
+			http.StatusConflict,
+		)
+		return
+	}
+
+	if err != sql.ErrNoRows {
+		errorJSON(
+			w,
+			"could not check email",
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	var oldAvatarPath string
+
+	err = db.QueryRow(`
+		SELECT COALESCE(avatar_path, '')
+		FROM users
+		WHERE id = ?
+	`, currentUserID).Scan(&oldAvatarPath)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			errorJSON(
+				w,
+				"user not found",
+				http.StatusNotFound,
+			)
 			return
 		}
-	} else if *req.IsPublic {
-		isPublicInt = 1
-	} else {
-		isPublicInt = 0
+
+		errorJSON(
+			w,
+			"could not read current avatar",
+			http.StatusInternalServerError,
+		)
+		return
 	}
+
+	avatarPath, err := saveUploadedImage(
+		r,
+		"avatar",
+		"uploads/avatars",
+	)
+
+	if err != nil {
+		errorJSON(
+			w,
+			err.Error(),
+			http.StatusBadRequest,
+		)
+		return
+	}
+
+	keepNewAvatar := false
+
+	defer func() {
+		if !keepNewAvatar {
+			removeUploadedImage(avatarPath)
+		}
+	}()
 
 	_, err = db.Exec(`
 		UPDATE users
-		SET nickname = ?,
-		    about_me = ?,
-		    is_public = ?
+		SET
+			email = ?,
+			first_name = ?,
+			last_name = ?,
+			date_of_birth = ?,
+			nickname = ?,
+			about_me = ?,
+			is_public = ?,
+			avatar_path =
+				CASE
+					WHEN ? = ''
+					THEN avatar_path
+					ELSE ?
+				END
 		WHERE id = ?
-	`, nickname, aboutMe, isPublicInt, currentUserID)
+	`,
+		email,
+		firstName,
+		lastName,
+		dateOfBirth,
+		nickname,
+		aboutMe,
+		isPublicInt,
+		avatarPath,
+		avatarPath,
+		currentUserID,
+	)
 
 	if err != nil {
-		errorJSON(w, "could not update profile", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"could not update profile",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{
-		"message": "profile updated successfully",
-	})
+	keepNewAvatar = true
+
+	if avatarPath != "" &&
+		oldAvatarPath != "" &&
+		oldAvatarPath != avatarPath {
+
+		removeUploadedImage(oldAvatarPath)
+	}
+
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]string{
+			"message": "profile updated successfully",
+		},
+	)
 }
 
 func canViewUserProfile(currentUserID int, targetUserID int) (bool, error) {

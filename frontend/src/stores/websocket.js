@@ -2,271 +2,285 @@ import { defineStore } from "pinia";
 
 let socket = null;
 
-export const useWebSocketStore = defineStore(
-    "websocket",
-    {
-        state: () => ({
-            connected: false,
-            error: "",
+export const useWebSocketStore = defineStore("websocket", {
+  state: () => ({
+    connected: false,
+    error: "",
 
-            lastEvent: null,
-            eventVersion: 0,
+    lastEvent: null,
+    eventVersion: 0,
 
-            currentUserID: null,
+    currentUserID: null,
+    onlineUserIDs: {},
 
-            activePrivateChatUserID: null,
-            privateUnreadByUser: {},
+    activePrivateChatUserID: null,
+    privateUnreadByUser: {},
 
-            activeGroupID: null,
-            groupUnreadByGroup: {},
-        }),
+    activeGroupID: null,
+    groupUnreadByGroup: {},
+  }),
 
-        getters: {
-            privateUnreadTotal(state) {
-                return Object.values(
-                    state.privateUnreadByUser
-                ).reduce(
-                    (total, count) => total + count,
-                    0
-                );
-            },
+  getters: {
+    isUserOnline: (state) => {
+      return (userID) => {
+        const id = Number(userID);
 
-            privateUnreadForUser: (state) => {
-                return (userID) =>
-                    state.privateUnreadByUser[userID] || 0;
-            },
+        if (!id) {
+          return false;
+        }
 
-            groupUnreadTotal(state) {
-                return Object.values(
-                    state.groupUnreadByGroup
-                ).reduce(
-                    (total, count) => total + count,
-                    0
-                );
-            },
+        return Boolean(state.onlineUserIDs[id]);
+      };
+    },
+    privateUnreadTotal(state) {
+      return Object.values(state.privateUnreadByUser).reduce(
+        (total, count) => total + count,
+        0,
+      );
+    },
 
-            groupUnreadForGroup: (state) => {
-                return (groupID) =>
-                    state.groupUnreadByGroup[groupID] || 0;
-            },
-        },
+    privateUnreadForUser: (state) => {
+      return (userID) => state.privateUnreadByUser[userID] || 0;
+    },
 
-        actions: {
-            connect(userID) {
-                this.currentUserID = userID;
+    groupUnreadTotal(state) {
+      return Object.values(state.groupUnreadByGroup).reduce(
+        (total, count) => total + count,
+        0,
+      );
+    },
 
-                if (
-                    socket &&
-                    (
-                        socket.readyState === WebSocket.OPEN ||
-                        socket.readyState === WebSocket.CONNECTING
-                    )
-                ) {
-                    return;
-                }
+    groupUnreadForGroup: (state) => {
+      return (groupID) => state.groupUnreadByGroup[groupID] || 0;
+    },
+  },
 
-                this.error = "";
+  actions: {
+    setPresenceSnapshot(data) {
+      const userIDs = data?.user_ids;
 
-                const protocol =
-                    window.location.protocol === "https:"
-                        ? "wss:"
-                        : "ws:";
+      if (!Array.isArray(userIDs)) {
+        return;
+      }
 
-                const url =
-                    `${protocol}//${window.location.host}/api/ws`;
+      const onlineUsers = {};
 
-                socket = new WebSocket(url);
+      for (const userID of userIDs) {
+        const id = Number(userID);
 
-                socket.onopen = () => {
-                    console.log("GLOBAL WS OPEN");
+        if (id > 0) {
+          onlineUsers[id] = true;
+        }
+      }
 
-                    this.connected = true;
-                    this.error = "";
-                };
+      this.onlineUserIDs = onlineUsers;
+    },
 
-                socket.onclose = (event) => {
-                    console.log(
-                        "GLOBAL WS CLOSED:",
-                        event.code,
-                        event.reason,
-                        event.wasClean
-                    );
+    updatePresence(data) {
+      const userID = Number(data?.user_id);
 
-                    this.connected = false;
-                    socket = null;
-                };
+      if (!userID) {
+        return;
+      }
 
-                socket.onerror = (event) => {
-                    console.error(
-                        "GLOBAL WS ERROR:",
-                        event
-                    );
+      if (data.online) {
+        this.onlineUserIDs[userID] = true;
+        return;
+      }
 
-                    this.error =
-                        "WebSocket connection error";
-                };
+      delete this.onlineUserIDs[userID];
+    },
+    connect(userID) {
+      this.currentUserID = userID;
 
-                socket.onmessage = (event) => {
-                    this.handleMessage(event);
-                };
-            },
+      if (
+        socket &&
+        (socket.readyState === WebSocket.OPEN ||
+          socket.readyState === WebSocket.CONNECTING)
+      ) {
+        return;
+      }
 
-            handleMessage(event) {
-                let parsed;
+      this.error = "";
 
-                try {
-                    parsed = JSON.parse(event.data);
-                } catch {
-                    this.error =
-                        "Received invalid WebSocket data";
-                    return;
-                }
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 
-                if (parsed.type === "error") {
-                    this.error =
-                        parsed.error || "WebSocket error";
-                    return;
-                }
+      const url = `${protocol}//${window.location.host}/api/ws`;
 
-                this.trackPrivateUnread(parsed);
-                this.trackGroupUnread(parsed);
+      socket = new WebSocket(url);
 
-                this.lastEvent = parsed;
-                this.eventVersion++;
-            },
+      socket.onopen = () => {
+        console.log("GLOBAL WS OPEN");
 
-            send(data) {
-                this.error = "";
+        this.connected = true;
+        this.error = "";
+      };
 
-                if (
-                    !socket ||
-                    socket.readyState !== WebSocket.OPEN
-                ) {
-                    this.error =
-                        "WebSocket is not connected";
+      socket.onclose = (event) => {
+        console.log(
+          "GLOBAL WS CLOSED:",
+          event.code,
+          event.reason,
+          event.wasClean,
+        );
 
-                    return false;
-                }
+        this.connected = false;
+        this.onlineUserIDs = {};
 
-                socket.send(JSON.stringify(data));
+        socket = null;
+      };
 
-                return true;
-            },
+      socket.onerror = (event) => {
+        console.error("GLOBAL WS ERROR:", event);
 
-            disconnect() {
-                if (socket) {
-                    socket.close();
-                    socket = null;
-                }
+        this.error = "WebSocket connection error";
+      };
 
-                this.connected = false;
-                this.lastEvent = null;
+      socket.onmessage = (event) => {
+        this.handleMessage(event);
+      };
+    },
 
-                this.currentUserID = null;
+    handleMessage(event) {
+      let parsed;
 
-                this.activePrivateChatUserID = null;
-                this.activeGroupID = null;
+      try {
+        parsed = JSON.parse(event.data);
+      } catch {
+        this.error = "Received invalid WebSocket data";
+        return;
+      }
 
-                this.privateUnreadByUser = {};
-                this.groupUnreadByGroup = {};
-            },
+      if (parsed.type === "error") {
+        this.error = parsed.error || "WebSocket error";
 
-            trackPrivateUnread(event) {
-                if (
-                    !event ||
-                    event.type !== "private_message" ||
-                    !event.data
-                ) {
-                    return;
-                }
+        return;
+      }
 
-                const message = event.data;
+      if (parsed.type === "presence_snapshot") {
+        this.setPresenceSnapshot(parsed.data);
+        return;
+      }
 
-                if (
-                    message.sender_id === this.currentUserID
-                ) {
-                    return;
-                }
+      if (parsed.type === "presence") {
+        this.updatePresence(parsed.data);
+        return;
+      }
 
-                if (
-                    message.sender_id ===
-                    this.activePrivateChatUserID
-                ) {
-                    return;
-                }
+      this.trackPrivateUnread(parsed);
+      this.trackGroupUnread(parsed);
 
-                const senderID = message.sender_id;
+      this.lastEvent = parsed;
+      this.eventVersion++;
+    },
 
-                const currentCount =
-                    this.privateUnreadByUser[senderID] || 0;
+    send(data) {
+      this.error = "";
 
-                this.privateUnreadByUser[senderID] =
-                    currentCount + 1;
-            },
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        this.error = "WebSocket is not connected";
 
-            setActivePrivateChat(userID) {
-                this.activePrivateChatUserID = userID;
+        return false;
+      }
 
-                if (userID) {
-                    this.clearPrivateUnread(userID);
-                }
-            },
+      socket.send(JSON.stringify(data));
 
-            clearPrivateUnread(userID) {
-                delete this.privateUnreadByUser[userID];
-            },
+      return true;
+    },
 
-            clearAllPrivateUnread() {
-                this.privateUnreadByUser = {};
-            },
+    disconnect() {
+      if (socket) {
+        socket.close();
+        socket = null;
+      }
 
-            trackGroupUnread(event) {
-                if (
-                    !event ||
-                    event.type !== "group_message" ||
-                    !event.data
-                ) {
-                    return;
-                }
+      this.connected = false;
+      this.lastEvent = null;
 
-                const message = event.data;
+      this.currentUserID = null;
+      this.onlineUserIDs = {};
 
-                if (
-                    message.sender_id === this.currentUserID
-                ) {
-                    return;
-                }
+      this.activePrivateChatUserID = null;
+      this.activeGroupID = null;
 
-                if (
-                    message.group_id === this.activeGroupID
-                ) {
-                    return;
-                }
+      this.privateUnreadByUser = {};
+      this.groupUnreadByGroup = {};
+    },
 
-                const groupID = message.group_id;
+    trackPrivateUnread(event) {
+      if (!event || event.type !== "private_message" || !event.data) {
+        return;
+      }
 
-                const currentCount =
-                    this.groupUnreadByGroup[groupID] || 0;
+      const message = event.data;
 
-                this.groupUnreadByGroup[groupID] =
-                    currentCount + 1;
-            },
+      if (message.sender_id === this.currentUserID) {
+        return;
+      }
 
-            setActiveGroup(groupID) {
-                this.activeGroupID = groupID;
+      if (message.sender_id === this.activePrivateChatUserID) {
+        return;
+      }
 
-                if (groupID) {
-                    this.clearGroupUnread(groupID);
-                }
-            },
+      const senderID = message.sender_id;
 
-            clearGroupUnread(groupID) {
-                delete this.groupUnreadByGroup[groupID];
-            },
+      const currentCount = this.privateUnreadByUser[senderID] || 0;
 
-            clearAllGroupUnread() {
-                this.groupUnreadByGroup = {};
-            },
-        },
-    }
-);
+      this.privateUnreadByUser[senderID] = currentCount + 1;
+    },
+
+    setActivePrivateChat(userID) {
+      this.activePrivateChatUserID = userID;
+
+      if (userID) {
+        this.clearPrivateUnread(userID);
+      }
+    },
+
+    clearPrivateUnread(userID) {
+      delete this.privateUnreadByUser[userID];
+    },
+
+    clearAllPrivateUnread() {
+      this.privateUnreadByUser = {};
+    },
+
+    trackGroupUnread(event) {
+      if (!event || event.type !== "group_message" || !event.data) {
+        return;
+      }
+
+      const message = event.data;
+
+      if (message.sender_id === this.currentUserID) {
+        return;
+      }
+
+      if (message.group_id === this.activeGroupID) {
+        return;
+      }
+
+      const groupID = message.group_id;
+
+      const currentCount = this.groupUnreadByGroup[groupID] || 0;
+
+      this.groupUnreadByGroup[groupID] = currentCount + 1;
+    },
+
+    setActiveGroup(groupID) {
+      this.activeGroupID = groupID;
+
+      if (groupID) {
+        this.clearGroupUnread(groupID);
+      }
+    },
+
+    clearGroupUnread(groupID) {
+      delete this.groupUnreadByGroup[groupID];
+    },
+
+    clearAllGroupUnread() {
+      this.groupUnreadByGroup = {};
+    },
+  },
+});

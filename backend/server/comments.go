@@ -92,6 +92,14 @@ func createCommentHandler(w http.ResponseWriter, r *http.Request, postID int) {
 	var content string
 	var imagePath string
 
+	keepUploadedImage := false
+
+	defer func() {
+		if !keepUploadedImage {
+			removeUploadedImage(imagePath)
+		}
+	}()
+
 	contentType := r.Header.Get("Content-Type")
 
 	if strings.HasPrefix(contentType, "multipart/form-data") {
@@ -147,6 +155,8 @@ func createCommentHandler(w http.ResponseWriter, r *http.Request, postID int) {
 		return
 	}
 
+	keepUploadedImage = true
+
 	commentID, err := result.LastInsertId()
 	if err != nil {
 		errorJSON(w, "comment created but could not read comment id", http.StatusInternalServerError)
@@ -163,6 +173,7 @@ func listCommentsHandler(w http.ResponseWriter, r *http.Request, postID int) {
 	userID := r.Context().Value(userIDKey).(int)
 
 	canView, err := canViewPost(userID, postID)
+
 	if err != nil {
 		errorJSON(w, "could not check post", http.StatusInternalServerError)
 		return
@@ -173,26 +184,101 @@ func listCommentsHandler(w http.ResponseWriter, r *http.Request, postID int) {
 		return
 	}
 
+	// Default amount of comments to load.
+	limit := 5
+
+	if rawLimit :=
+		r.URL.Query().Get("limit"); rawLimit != "" {
+
+		parsedLimit, err :=
+			strconv.Atoi(rawLimit)
+
+		if err != nil ||
+			parsedLimit <= 0 ||
+			parsedLimit > 20 {
+
+			errorJSON(
+				w,
+				"invalid comment limit",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		limit = parsedLimit
+	}
+
+	beforeID := 0
+
+	if rawBefore :=
+		r.URL.Query().Get("before_id"); rawBefore != "" {
+
+		parsedBefore, err :=
+			strconv.Atoi(rawBefore)
+
+		if err != nil ||
+			parsedBefore <= 0 {
+
+			errorJSON(
+				w,
+				"invalid comment cursor",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		beforeID = parsedBefore
+	}
+
 	rows, err := db.Query(`
 		SELECT
 			comments.id,
 			comments.post_id,
 			comments.user_id,
-			users.first_name || ' ' || users.last_name AS author_name,
-			COALESCE(users.nickname, '') AS author_nickname,
+			users.first_name || ' ' ||
+				users.last_name
+				AS author_name,
+			COALESCE(
+				users.nickname,
+				''
+			) AS author_nickname,
+			COALESCE(
+				users.avatar_path,
+				''
+			) AS author_avatar_path,
 			comments.content,
-			COALESCE(comments.image_path, '') AS image_path,
+			COALESCE(
+				comments.image_path,
+				''
+			) AS image_path,
 			comments.created_at
 		FROM comments
-		JOIN users ON users.id = comments.user_id
+		JOIN users
+			ON users.id =
+				comments.user_id
 		WHERE comments.post_id = ?
-		ORDER BY comments.created_at ASC
-	`, postID)
+		  AND (
+			? = 0
+			OR comments.id < ?
+		  )
+		ORDER BY comments.id DESC
+		LIMIT ?
+	`,
+		postID,
+		beforeID,
+		beforeID,
+		limit+1,
+	)
 
 	if err != nil {
-		errorJSON(w, "could not load comments", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"could not load comments",
+			http.StatusInternalServerError,
+		)
 		return
 	}
+
 	defer rows.Close()
 
 	comments := []CommentResponse{}
@@ -206,23 +292,71 @@ func listCommentsHandler(w http.ResponseWriter, r *http.Request, postID int) {
 			&comment.UserID,
 			&comment.AuthorName,
 			&comment.AuthorNickname,
+			&comment.AuthorAvatarPath,
 			&comment.Content,
 			&comment.ImagePath,
 			&comment.CreatedAt,
 		)
 
 		if err != nil {
-			errorJSON(w, "could not read comment data", http.StatusInternalServerError)
+			errorJSON(
+				w,
+				"could not read comment data",
+				http.StatusInternalServerError,
+			)
 			return
 		}
 
-		comments = append(comments, comment)
+		comments =
+			append(comments, comment)
 	}
 
 	if err := rows.Err(); err != nil {
-		errorJSON(w, "error while reading comments", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"error while reading comments",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, comments)
+	// We requested one extra record so we
+	// can determine whether earlier
+	// comments still exist.
+	hasMore :=
+		len(comments) > limit
+
+	if hasMore {
+		comments =
+			comments[:limit]
+	}
+
+	// SQL returned newest -> oldest.
+	// The UI should display comments
+	// oldest -> newest.
+	for i, j :=
+		0, len(comments)-1; i < j; i, j = i+1, j-1 {
+
+		comments[i],
+			comments[j] =
+			comments[j],
+			comments[i]
+	}
+
+	nextBeforeID := 0
+
+	if len(comments) > 0 {
+		nextBeforeID =
+			comments[0].ID
+	}
+
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]interface{}{
+			"comments":       comments,
+			"has_more":       hasMore,
+			"next_before_id": nextBeforeID,
+		},
+	)
 }

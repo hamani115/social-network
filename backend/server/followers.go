@@ -2,6 +2,7 @@ package server
 
 import (
 	"database/sql"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -282,7 +283,8 @@ func listFollowersHandler(w http.ResponseWriter, r *http.Request, targetUserID i
 			users.email,
 			users.first_name,
 			users.last_name,
-			COALESCE(users.nickname, '')
+			COALESCE(users.nickname, ''),
+			COALESCE(users.avatar_path, '')
 		FROM followers
 		JOIN users ON users.id = followers.follower_id
 		WHERE followers.following_id = ?
@@ -306,6 +308,7 @@ func listFollowersHandler(w http.ResponseWriter, r *http.Request, targetUserID i
 			&user.FirstName,
 			&user.LastName,
 			&user.Nickname,
+			&user.AvatarPath,
 		)
 
 		if err != nil {
@@ -349,7 +352,8 @@ func listFollowingHandler(w http.ResponseWriter, r *http.Request, targetUserID i
 			users.email,
 			users.first_name,
 			users.last_name,
-			COALESCE(users.nickname, '')
+			COALESCE(users.nickname, ''),
+			COALESCE(users.avatar_path, '')
 		FROM followers
 		JOIN users ON users.id = followers.following_id
 		WHERE followers.follower_id = ?
@@ -373,6 +377,7 @@ func listFollowingHandler(w http.ResponseWriter, r *http.Request, targetUserID i
 			&user.FirstName,
 			&user.LastName,
 			&user.Nickname,
+			&user.AvatarPath,
 		)
 
 		if err != nil {
@@ -447,6 +452,7 @@ func listFollowRequestsHandler(w http.ResponseWriter, r *http.Request) {
 			follow_requests.requester_id,
 			users.first_name || ' ' || users.last_name AS requester_name,
 			COALESCE(users.nickname, '') AS requester_nickname,
+			COALESCE(users.avatar_path, '') AS requester_avatar_path,
 			follow_requests.target_id,
 			follow_requests.status,
 			follow_requests.created_at
@@ -473,6 +479,7 @@ func listFollowRequestsHandler(w http.ResponseWriter, r *http.Request) {
 			&request.RequesterID,
 			&request.RequesterName,
 			&request.RequesterNick,
+			&request.RequesterAvatarPath,
 			&request.TargetID,
 			&request.Status,
 			&request.CreatedAt,
@@ -497,11 +504,19 @@ func listFollowRequestsHandler(w http.ResponseWriter, r *http.Request) {
 func acceptFollowRequestHandler(w http.ResponseWriter, r *http.Request, requestID int) {
 	currentUserID := r.Context().Value(userIDKey).(int)
 
+	tx, err := db.Begin()
+	if err != nil {
+		errorJSON(w, "could not start transaction", http.StatusInternalServerError)
+		return
+	}
+
+	defer tx.Rollback()
+
 	var requesterID int
 	var targetID int
 	var status string
 
-	err := db.QueryRow(`
+	err = tx.QueryRow(`
 		SELECT requester_id, target_id, status
 		FROM follow_requests
 		WHERE id = ?
@@ -527,37 +542,73 @@ func acceptFollowRequestHandler(w http.ResponseWriter, r *http.Request, requestI
 		return
 	}
 
-	_, err = db.Exec(`
-		INSERT INTO followers (follower_id, following_id)
+	_, err = tx.Exec(`
+		INSERT INTO followers (
+			follower_id,
+			following_id
+		)
 		VALUES (?, ?)
-	`, requesterID, targetID)
+	`,
+		requesterID,
+		targetID,
+	)
 
 	if err != nil {
-		errorJSON(w, "could not create follower relationship", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"could not create follower relationship",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
-	_, err = db.Exec(`
+	_, err = tx.Exec(`
 		UPDATE follow_requests
-		SET status = 'accepted',
-		    updated_at = CURRENT_TIMESTAMP
+		SET
+			status = 'accepted',
+			updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
 	`, requestID)
 
 	if err != nil {
-		errorJSON(w, "could not update follow request", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"could not update follow request",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
-	err = notifyFollowRequestAccepted(requesterID, currentUserID)
+	err = tx.Commit()
 	if err != nil {
-		errorJSON(w, "follow request accepted but notification failed", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"could not accept follow request",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{
-		"message": "follow request accepted",
-	})
+	err = notifyFollowRequestAccepted(
+		requesterID,
+		currentUserID,
+	)
+
+	if err != nil {
+		log.Printf(
+			"follow request %d accepted, but notification failed: %v",
+			requestID,
+			err,
+		)
+	}
+
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]string{
+			"message": "follow request accepted",
+		},
+	)
 }
 
 func declineFollowRequestHandler(w http.ResponseWriter, r *http.Request, requestID int) {
@@ -619,46 +670,220 @@ func usersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func listUsersHandler(w http.ResponseWriter, r *http.Request) {
-	currentUserID := r.Context().Value(userIDKey).(int)
+	currentUserID :=
+		r.Context().Value(userIDKey).(int)
 
+	// PAGINATION
+
+	limit := 20
+
+	if rawLimit :=
+		r.URL.Query().Get("limit"); rawLimit != "" {
+
+		parsedLimit, err :=
+			strconv.Atoi(rawLimit)
+
+		if err != nil ||
+			parsedLimit <= 0 ||
+			parsedLimit > 50 {
+
+			errorJSON(
+				w,
+				"invalid user limit",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		limit = parsedLimit
+	}
+
+	offset := 0
+
+	if rawOffset :=
+		r.URL.Query().Get("offset"); rawOffset != "" {
+
+		parsedOffset, err :=
+			strconv.Atoi(rawOffset)
+
+		if err != nil ||
+			parsedOffset < 0 {
+
+			errorJSON(
+				w,
+				"invalid user offset",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		offset = parsedOffset
+	}
+
+	// SEARCH
+
+	searchQuery :=
+		strings.ToLower(
+			strings.TrimSpace(
+				r.URL.Query().Get("q"),
+			),
+		)
+
+	searchPattern :=
+		"%" + searchQuery + "%"
+
+	// Ask for one extra user so we
+	// know whether another page exists.
 	rows, err := db.Query(`
 		SELECT
 			users.id,
-			users.email,
+
+			CASE
+				WHEN users.is_public = 1
+					OR EXISTS (
+						SELECT 1
+						FROM followers
+							AS email_followers
+						WHERE
+							email_followers.follower_id = ?
+							AND
+							email_followers.following_id =
+								users.id
+					)
+				THEN users.email
+				ELSE ''
+			END AS email,
+
 			users.first_name,
 			users.last_name,
-			COALESCE(users.nickname, ''),
+
+			COALESCE(
+				users.nickname,
+				''
+			),
+
+			COALESCE(
+				users.avatar_path,
+				''
+			),
+
 			users.is_public,
+
 			CASE
 				WHEN EXISTS (
 					SELECT 1
 					FROM followers
-					WHERE followers.follower_id = ?
-					  AND followers.following_id = users.id
-				) THEN 'following'
+					WHERE
+						followers.follower_id = ?
+						AND
+						followers.following_id =
+							users.id
+				)
+				THEN 'following'
 
 				WHEN EXISTS (
 					SELECT 1
 					FROM follow_requests
-					WHERE follow_requests.requester_id = ?
-					  AND follow_requests.target_id = users.id
-					  AND follow_requests.status = 'pending'
-				) THEN 'pending'
+					WHERE
+						follow_requests.requester_id = ?
+						AND
+						follow_requests.target_id =
+							users.id
+						AND
+						follow_requests.status =
+							'pending'
+				)
+				THEN 'pending'
 
 				ELSE 'none'
 			END AS follow_status
+
 		FROM users
+
 		WHERE users.id != ?
-		ORDER BY users.first_name, users.last_name
-	`, currentUserID, currentUserID, currentUserID)
+
+		  AND (
+			? = ''
+
+			OR LOWER(
+				users.first_name
+			) LIKE ?
+
+			OR LOWER(
+				users.last_name
+			) LIKE ?
+
+			OR LOWER(
+				users.first_name ||
+				' ' ||
+				users.last_name
+			) LIKE ?
+
+			OR LOWER(
+				COALESCE(
+					users.nickname,
+					''
+				)
+			) LIKE ?
+
+			OR (
+				(
+					users.is_public = 1
+
+					OR EXISTS (
+						SELECT 1
+						FROM followers
+							AS search_email_followers
+						WHERE
+							search_email_followers.follower_id = ?
+							AND
+							search_email_followers.following_id =
+								users.id
+					)
+				)
+
+				AND LOWER(
+					users.email
+				) LIKE ?
+			)
+		  )
+
+		ORDER BY
+			LOWER(users.first_name),
+			LOWER(users.last_name),
+			users.id
+
+		LIMIT ?
+		OFFSET ?
+	`,
+		currentUserID,
+		currentUserID,
+		currentUserID,
+		currentUserID,
+		searchQuery,
+		searchPattern,
+		searchPattern,
+		searchPattern,
+		searchPattern,
+		currentUserID,
+		searchPattern,
+		limit+1,
+		offset,
+	)
 
 	if err != nil {
-		errorJSON(w, "could not load users", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"could not load users",
+			http.StatusInternalServerError,
+		)
 		return
 	}
+
 	defer rows.Close()
 
-	users := []UserWithFollowStatus{}
+	users :=
+		[]UserWithFollowStatus{}
 
 	for rows.Next() {
 		var user UserWithFollowStatus
@@ -670,24 +895,55 @@ func listUsersHandler(w http.ResponseWriter, r *http.Request) {
 			&user.FirstName,
 			&user.LastName,
 			&user.Nickname,
+			&user.AvatarPath,
 			&isPublicInt,
 			&user.FollowStatus,
 		)
 
 		if err != nil {
-			errorJSON(w, "could not read user data", http.StatusInternalServerError)
+			errorJSON(
+				w,
+				"could not read user data",
+				http.StatusInternalServerError,
+			)
 			return
 		}
 
-		user.IsPublic = isPublicInt == 1
+		user.IsPublic =
+			isPublicInt == 1
 
-		users = append(users, user)
+		users = append(
+			users,
+			user,
+		)
 	}
 
 	if err := rows.Err(); err != nil {
-		errorJSON(w, "error while reading users", http.StatusInternalServerError)
+		errorJSON(
+			w,
+			"error while reading users",
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
-	writeJSON(w, http.StatusOK, users)
+	hasMore :=
+		len(users) > limit
+
+	if hasMore {
+		users =
+			users[:limit]
+	}
+
+	writeJSON(
+		w,
+		http.StatusOK,
+		map[string]interface{}{
+			"users": users,
+
+			"has_more": hasMore,
+
+			"next_offset": offset + len(users),
+		},
+	)
 }

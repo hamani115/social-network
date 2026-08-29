@@ -1,12 +1,69 @@
 package server
 
-import "net/http"
+import (
+	"net/http"
+	"strconv"
+)
 
-func listGroupMessagesHandler(w http.ResponseWriter, r *http.Request, groupID int) {
-	_, ok := requireGroupMember(w, r, groupID)
+func listGroupMessagesHandler(
+	w http.ResponseWriter,
+	r *http.Request,
+	groupID int,
+) {
+	_, ok :=
+		requireGroupMember(
+			w,
+			r,
+			groupID,
+		)
 
 	if !ok {
 		return
+	}
+
+	limit := 30
+
+	if rawLimit :=
+		r.URL.Query().Get("limit"); rawLimit != "" {
+
+		parsedLimit, err :=
+			strconv.Atoi(rawLimit)
+
+		if err != nil ||
+			parsedLimit <= 0 ||
+			parsedLimit > 100 {
+
+			errorJSON(
+				w,
+				"invalid message limit",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		limit = parsedLimit
+	}
+
+	beforeID := 0
+
+	if rawBefore :=
+		r.URL.Query().Get("before_id"); rawBefore != "" {
+
+		parsedBefore, err :=
+			strconv.Atoi(rawBefore)
+
+		if err != nil ||
+			parsedBefore <= 0 {
+
+			errorJSON(
+				w,
+				"invalid message cursor",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		beforeID = parsedBefore
 	}
 
 	rows, err := db.Query(`
@@ -16,7 +73,14 @@ func listGroupMessagesHandler(w http.ResponseWriter, r *http.Request, groupID in
 			group_messages.sender_id,
 
 			users.first_name || ' ' ||
-			users.last_name AS sender_name,
+				users.last_name
+					AS sender_name,
+
+			
+			COALESCE(
+				users.avatar_path,
+				''
+			) AS sender_avatar_path,
 
 			group_messages.content,
 			group_messages.created_at
@@ -24,14 +88,28 @@ func listGroupMessagesHandler(w http.ResponseWriter, r *http.Request, groupID in
 		FROM group_messages
 
 		JOIN users
-		  ON users.id = group_messages.sender_id
+			ON users.id =
+				group_messages.sender_id
 
-		WHERE group_messages.group_id = ?
+		WHERE
+			group_messages.group_id = ?
+
+			AND (
+				? = 0
+				OR
+				group_messages.id < ?
+			)
 
 		ORDER BY
-			group_messages.created_at ASC,
-			group_messages.id ASC
-	`, groupID)
+			group_messages.id DESC
+
+		LIMIT ?
+	`,
+		groupID,
+		beforeID,
+		beforeID,
+		limit+1,
+	)
 
 	if err != nil {
 		errorJSON(
@@ -44,7 +122,8 @@ func listGroupMessagesHandler(w http.ResponseWriter, r *http.Request, groupID in
 
 	defer rows.Close()
 
-	messages := []GroupMessageResponse{}
+	messages :=
+		[]GroupMessageResponse{}
 
 	for rows.Next() {
 		var message GroupMessageResponse
@@ -54,6 +133,7 @@ func listGroupMessagesHandler(w http.ResponseWriter, r *http.Request, groupID in
 			&message.GroupID,
 			&message.SenderID,
 			&message.SenderName,
+			&message.SenderAvatarPath,
 			&message.Content,
 			&message.CreatedAt,
 		)
@@ -67,10 +147,11 @@ func listGroupMessagesHandler(w http.ResponseWriter, r *http.Request, groupID in
 			return
 		}
 
-		messages = append(
-			messages,
-			message,
-		)
+		messages =
+			append(
+				messages,
+				message,
+			)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -82,10 +163,40 @@ func listGroupMessagesHandler(w http.ResponseWriter, r *http.Request, groupID in
 		return
 	}
 
+	hasMore :=
+		len(messages) > limit
+
+	if hasMore {
+		messages =
+			messages[:limit]
+	}
+
+	for i, j :=
+		0, len(messages)-1; i < j; i, j = i+1, j-1 {
+
+		messages[i],
+			messages[j] =
+			messages[j],
+			messages[i]
+	}
+
+	nextBeforeID := 0
+
+	if len(messages) > 0 {
+		nextBeforeID =
+			messages[0].ID
+	}
+
 	writeJSON(
 		w,
 		http.StatusOK,
-		messages,
+		map[string]interface{}{
+			"messages": messages,
+
+			"has_more": hasMore,
+
+			"next_before_id": nextBeforeID,
+		},
 	)
 }
 
@@ -125,6 +236,12 @@ func saveGroupMessage(groupID int, senderID int, content string) (GroupMessageRe
 			users.first_name || ' ' ||
 			users.last_name AS sender_name,
 
+			COALESCE(
+				users.avatar_path,
+				''
+			) AS sender_avatar_path,
+
+
 			group_messages.content,
 			group_messages.created_at
 
@@ -139,6 +256,7 @@ func saveGroupMessage(groupID int, senderID int, content string) (GroupMessageRe
 		&message.GroupID,
 		&message.SenderID,
 		&message.SenderName,
+		&message.SenderAvatarPath,
 		&message.Content,
 		&message.CreatedAt,
 	)

@@ -53,7 +53,8 @@ func chatUsersHandler(w http.ResponseWriter, r *http.Request) {
 			users.id,
 			users.first_name,
 			users.last_name,
-			COALESCE(users.nickname, '')
+			COALESCE(users.nickname, ''),
+			COALESCE(users.avatar_path, '')
 		FROM users
 		WHERE users.id != ?
 		  AND EXISTS (
@@ -71,18 +72,10 @@ func chatUsersHandler(w http.ResponseWriter, r *http.Request) {
 				  )
 		  )
 		ORDER BY users.first_name, users.last_name
-	`,
-		currentUserID,
-		currentUserID,
-		currentUserID,
-	)
+	`, currentUserID, currentUserID, currentUserID)
 
 	if err != nil {
-		errorJSON(
-			w,
-			"could not load chat users",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "could not load chat users", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -97,6 +90,7 @@ func chatUsersHandler(w http.ResponseWriter, r *http.Request) {
 			&user.FirstName,
 			&user.LastName,
 			&user.Nickname,
+			&user.AvatarPath,
 		)
 
 		if err != nil {
@@ -151,11 +145,7 @@ func listPrivateMessagesHandler(w http.ResponseWriter, r *http.Request, otherUse
 	currentUserID := r.Context().Value(userIDKey).(int)
 
 	if currentUserID == otherUserID {
-		errorJSON(
-			w,
-			"cannot open a private chat with yourself",
-			http.StatusBadRequest,
-		)
+		errorJSON(w, "cannot open a private chat with yourself", http.StatusBadRequest)
 		return
 	}
 
@@ -165,7 +155,9 @@ func listPrivateMessagesHandler(w http.ResponseWriter, r *http.Request, otherUse
 		SELECT COUNT(*)
 		FROM users
 		WHERE id = ?
-	`, otherUserID).Scan(&userCount)
+	`,
+		otherUserID,
+	).Scan(&userCount)
 
 	if err != nil {
 		errorJSON(
@@ -185,10 +177,11 @@ func listPrivateMessagesHandler(w http.ResponseWriter, r *http.Request, otherUse
 		return
 	}
 
-	allowed, err := canPrivateChat(
-		currentUserID,
-		otherUserID,
-	)
+	allowed, err :=
+		canPrivateChat(
+			currentUserID,
+			otherUserID,
+		)
 
 	if err != nil {
 		errorJSON(
@@ -208,6 +201,51 @@ func listPrivateMessagesHandler(w http.ResponseWriter, r *http.Request, otherUse
 		return
 	}
 
+	limit := 30
+
+	if rawLimit :=
+		r.URL.Query().Get("limit"); rawLimit != "" {
+
+		parsedLimit, err :=
+			strconv.Atoi(rawLimit)
+
+		if err != nil ||
+			parsedLimit <= 0 ||
+			parsedLimit > 100 {
+
+			errorJSON(
+				w,
+				"invalid message limit",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		limit = parsedLimit
+	}
+
+	beforeID := 0
+
+	if rawBefore :=
+		r.URL.Query().Get("before_id"); rawBefore != "" {
+
+		parsedBefore, err :=
+			strconv.Atoi(rawBefore)
+
+		if err != nil ||
+			parsedBefore <= 0 {
+
+			errorJSON(
+				w,
+				"invalid message cursor",
+				http.StatusBadRequest,
+			)
+			return
+		}
+
+		beforeID = parsedBefore
+	}
+
 	rows, err := db.Query(`
 		SELECT
 			private_messages.id,
@@ -215,7 +253,13 @@ func listPrivateMessagesHandler(w http.ResponseWriter, r *http.Request, otherUse
 			private_messages.receiver_id,
 
 			users.first_name || ' ' ||
-			users.last_name AS sender_name,
+				users.last_name
+					AS sender_name,
+
+			COALESCE(
+				users.avatar_path,
+				''
+			) AS sender_avatar_path,
 
 			private_messages.content,
 			private_messages.created_at
@@ -223,27 +267,44 @@ func listPrivateMessagesHandler(w http.ResponseWriter, r *http.Request, otherUse
 		FROM private_messages
 
 		JOIN users
-		  ON users.id = private_messages.sender_id
+			ON users.id =
+				private_messages.sender_id
 
 		WHERE
 			(
-				private_messages.sender_id = ?
-				AND private_messages.receiver_id = ?
+				(
+					private_messages.sender_id = ?
+					AND
+					private_messages.receiver_id = ?
+				)
+				OR
+				(
+					private_messages.sender_id = ?
+					AND
+					private_messages.receiver_id = ?
+				)
 			)
-			OR
-			(
-				private_messages.sender_id = ?
-				AND private_messages.receiver_id = ?
+
+			AND (
+				? = 0
+				OR
+				private_messages.id < ?
 			)
 
 		ORDER BY
-			private_messages.created_at ASC,
-			private_messages.id ASC
+			private_messages.id DESC
+
+		LIMIT ?
 	`,
 		currentUserID,
 		otherUserID,
 		otherUserID,
 		currentUserID,
+
+		beforeID,
+		beforeID,
+
+		limit+1,
 	)
 
 	if err != nil {
@@ -254,9 +315,11 @@ func listPrivateMessagesHandler(w http.ResponseWriter, r *http.Request, otherUse
 		)
 		return
 	}
+
 	defer rows.Close()
 
-	messages := []PrivateMessageResponse{}
+	messages :=
+		[]PrivateMessageResponse{}
 
 	for rows.Next() {
 		var message PrivateMessageResponse
@@ -266,6 +329,7 @@ func listPrivateMessagesHandler(w http.ResponseWriter, r *http.Request, otherUse
 			&message.SenderID,
 			&message.ReceiverID,
 			&message.SenderName,
+			&message.SenderAvatarPath,
 			&message.Content,
 			&message.CreatedAt,
 		)
@@ -279,7 +343,11 @@ func listPrivateMessagesHandler(w http.ResponseWriter, r *http.Request, otherUse
 			return
 		}
 
-		messages = append(messages, message)
+		messages =
+			append(
+				messages,
+				message,
+			)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -291,18 +359,44 @@ func listPrivateMessagesHandler(w http.ResponseWriter, r *http.Request, otherUse
 		return
 	}
 
+	hasMore :=
+		len(messages) > limit
+
+	if hasMore {
+		messages =
+			messages[:limit]
+	}
+
+	for i, j :=
+		0, len(messages)-1; i < j; i, j = i+1, j-1 {
+
+		messages[i],
+			messages[j] =
+			messages[j],
+			messages[i]
+	}
+
+	nextBeforeID := 0
+
+	if len(messages) > 0 {
+		nextBeforeID =
+			messages[0].ID
+	}
+
 	writeJSON(
 		w,
 		http.StatusOK,
-		messages,
+		map[string]interface{}{
+			"messages": messages,
+
+			"has_more": hasMore,
+
+			"next_before_id": nextBeforeID,
+		},
 	)
 }
 
-func savePrivateMessage(
-	senderID int,
-	receiverID int,
-	content string,
-) (PrivateMessageResponse, error) {
+func savePrivateMessage(senderID int, receiverID int, content string) (PrivateMessageResponse, error) {
 
 	result, err := db.Exec(`
 		INSERT INTO private_messages (
@@ -337,6 +431,11 @@ func savePrivateMessage(
 			users.first_name || ' ' ||
 			users.last_name AS sender_name,
 
+			COALESCE(
+				users.avatar_path,
+				''
+			) AS sender_avatar_path,
+
 			private_messages.content,
 			private_messages.created_at
 
@@ -351,6 +450,7 @@ func savePrivateMessage(
 		&message.SenderID,
 		&message.ReceiverID,
 		&message.SenderName,
+		&message.SenderAvatarPath,
 		&message.Content,
 		&message.CreatedAt,
 	)

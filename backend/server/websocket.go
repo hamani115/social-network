@@ -126,6 +126,9 @@ func (c *Client) readPump() {
 		case "private_message":
 			c.handlePrivateMessage(event)
 
+		case "private_typing":
+			c.handlePrivateTyping(event)
+
 		case "group_message":
 			c.handleGroupMessage(event)
 
@@ -146,9 +149,7 @@ func (c *Client) sendError(message string) {
 	}
 }
 
-func (c *Client) handlePrivateMessage(
-	event IncomingWebSocketEvent,
-) {
+func (c *Client) handlePrivateMessage(event IncomingWebSocketEvent) {
 	content := strings.TrimSpace(event.Content)
 
 	if event.ReceiverID <= 0 {
@@ -232,6 +233,81 @@ func (c *Client) handlePrivateMessage(
 	c.hub.deliver <- HubDelivery{
 		UserID: c.userID,
 		Event:  messageEvent,
+	}
+}
+
+func (c *Client) handlePrivateTyping(
+	event IncomingWebSocketEvent,
+) {
+	if event.ReceiverID <= 0 {
+		c.sendError("invalid receiver id")
+		return
+	}
+
+	if event.ReceiverID == c.userID {
+		c.sendError(
+			"cannot send typing status to yourself",
+		)
+		return
+	}
+
+	exists, err :=
+		chatUserExists(event.ReceiverID)
+
+	if err != nil {
+		log.Printf(
+			"could not check typing receiver %d: %v",
+			event.ReceiverID,
+			err,
+		)
+
+		c.sendError("could not check receiver")
+		return
+	}
+
+	if !exists {
+		c.sendError("receiver not found")
+		return
+	}
+
+	allowed, err := canPrivateChat(
+		c.userID,
+		event.ReceiverID,
+	)
+
+	if err != nil {
+		log.Printf(
+			"could not check private chat permission: %v",
+			err,
+		)
+
+		c.sendError(
+			"could not check chat permission",
+		)
+		return
+	}
+
+	if !allowed {
+		c.sendError(
+			"you cannot chat with this user",
+		)
+		return
+	}
+
+	typingEvent := WebSocketEvent{
+		Type: "private_typing",
+		Data: PrivateTypingUpdate{
+			SenderID: c.userID,
+
+			ReceiverID: event.ReceiverID,
+
+			Typing: event.Typing,
+		},
+	}
+
+	c.hub.deliver <- HubDelivery{
+		UserID: event.ReceiverID,
+		Event:  typingEvent,
 	}
 }
 

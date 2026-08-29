@@ -19,11 +19,12 @@ type LoginRequest struct {
 }
 
 type User struct {
-	ID        int    `json:"id"`
-	Email     string `json:"email"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	Nickname  string `json:"nickname"`
+	ID         int    `json:"id"`
+	Email      string `json:"email"`
+	FirstName  string `json:"first_name"`
+	LastName   string `json:"last_name"`
+	Nickname   string `json:"nickname"`
+	AvatarPath string `json:"avatar_path"`
 }
 
 // posts
@@ -34,14 +35,15 @@ type CreatePostRequest struct {
 }
 
 type PostResponse struct {
-	ID             int    `json:"id"`
-	UserID         int    `json:"user_id"`
-	AuthorName     string `json:"author_name"`
-	AuthorNickname string `json:"author_nickname"`
-	Content        string `json:"content"`
-	ImagePath      string `json:"image_path"`
-	Privacy        string `json:"privacy"`
-	CreatedAt      string `json:"created_at"`
+	ID               int    `json:"id"`
+	UserID           int    `json:"user_id"`
+	AuthorName       string `json:"author_name"`
+	AuthorNickname   string `json:"author_nickname"`
+	AuthorAvatarPath string `json:"author_avatar_path"`
+	Content          string `json:"content"`
+	ImagePath        string `json:"image_path"`
+	Privacy          string `json:"privacy"`
+	CreatedAt        string `json:"created_at"`
 }
 
 // comments
@@ -50,14 +52,15 @@ type CreateCommentRequest struct {
 }
 
 type CommentResponse struct {
-	ID             int    `json:"id"`
-	PostID         int    `json:"post_id"`
-	UserID         int    `json:"user_id"`
-	AuthorName     string `json:"author_name"`
-	AuthorNickname string `json:"author_nickname"`
-	Content        string `json:"content"`
-	ImagePath      string `json:"image_path"`
-	CreatedAt      string `json:"created_at"`
+	ID               int    `json:"id"`
+	PostID           int    `json:"post_id"`
+	UserID           int    `json:"user_id"`
+	AuthorName       string `json:"author_name"`
+	AuthorNickname   string `json:"author_nickname"`
+	AuthorAvatarPath string `json:"author_avatar_path"`
+	Content          string `json:"content"`
+	ImagePath        string `json:"image_path"`
+	CreatedAt        string `json:"created_at"`
 }
 
 // followers
@@ -67,21 +70,23 @@ type FollowUserResponse struct {
 }
 
 type UserListItem struct {
-	ID        int    `json:"id"`
-	Email     string `json:"email"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	Nickname  string `json:"nickname"`
+	ID         int    `json:"id"`
+	Email      string `json:"email"`
+	FirstName  string `json:"first_name"`
+	LastName   string `json:"last_name"`
+	Nickname   string `json:"nickname"`
+	AvatarPath string `json:"avatar_path"`
 }
 
 type FollowRequestResponse struct {
-	ID            int    `json:"id"`
-	RequesterID   int    `json:"requester_id"`
-	RequesterName string `json:"requester_name"`
-	RequesterNick string `json:"requester_nickname"`
-	TargetID      int    `json:"target_id"`
-	Status        string `json:"status"`
-	CreatedAt     string `json:"created_at"`
+	ID                  int    `json:"id"`
+	RequesterID         int    `json:"requester_id"`
+	RequesterName       string `json:"requester_name"`
+	RequesterNick       string `json:"requester_nickname"`
+	RequesterAvatarPath string `json:"requester_avatar_path"`
+	TargetID            int    `json:"target_id"`
+	Status              string `json:"status"`
+	CreatedAt           string `json:"created_at"`
 }
 
 type UserWithFollowStatus struct {
@@ -90,6 +95,7 @@ type UserWithFollowStatus struct {
 	FirstName    string `json:"first_name"`
 	LastName     string `json:"last_name"`
 	Nickname     string `json:"nickname"`
+	AvatarPath   string `json:"avatar_path"`
 	IsPublic     bool   `json:"is_public"`
 	FollowStatus string `json:"follow_status"`
 }
@@ -148,13 +154,14 @@ type GroupResponse struct {
 }
 
 type GroupJoinRequestResponse struct {
-	ID                int    `json:"id"`
-	GroupID           int    `json:"group_id"`
-	RequesterID       int    `json:"requester_id"`
-	RequesterName     string `json:"requester_name"`
-	RequesterNickname string `json:"requester_nickname"`
-	Status            string `json:"status"`
-	CreatedAt         string `json:"created_at"`
+	ID                  int    `json:"id"`
+	GroupID             int    `json:"group_id"`
+	RequesterID         int    `json:"requester_id"`
+	RequesterName       string `json:"requester_name"`
+	RequesterNickname   string `json:"requester_nickname"`
+	RequesterAvatarPath string `json:"requester_avatar_path"`
+	Status              string `json:"status"`
+	CreatedAt           string `json:"created_at"`
 }
 
 type CreateGroupInvitationRequest struct {
@@ -162,16 +169,18 @@ type CreateGroupInvitationRequest struct {
 }
 
 type GroupInvitationResponse struct {
-	ID              int    `json:"id"`
-	GroupID         int    `json:"group_id"`
-	GroupTitle      string `json:"group_title"`
-	InviterID       int    `json:"inviter_id"`
-	InviterName     string `json:"inviter_name"`
-	InviteeID       int    `json:"invitee_id"`
-	InviteeName     string `json:"invitee_name"`
-	InviteeNickname string `json:"invitee_nickname"`
-	Status          string `json:"status"`
-	CreatedAt       string `json:"created_at"`
+	ID                int    `json:"id"`
+	GroupID           int    `json:"group_id"`
+	GroupTitle        string `json:"group_title"`
+	InviterID         int    `json:"inviter_id"`
+	InviterName       string `json:"inviter_name"`
+	InviterAvatarPath string `json:"inviter_avatar_path"`
+	InviteeID         int    `json:"invitee_id"`
+	InviteeName       string `json:"invitee_name"`
+	InviteeNickname   string `json:"invitee_nickname"`
+	InviteeAvatarPath string `json:"invitee_avatar_path"`
+	Status            string `json:"status"`
+	CreatedAt         string `json:"created_at"`
 }
 
 type CreateGroupPostRequest struct {
@@ -179,14 +188,15 @@ type CreateGroupPostRequest struct {
 }
 
 type GroupPostResponse struct {
-	ID             int    `json:"id"`
-	GroupID        int    `json:"group_id"`
-	UserID         int    `json:"user_id"`
-	AuthorName     string `json:"author_name"`
-	AuthorNickname string `json:"author_nickname"`
-	Content        string `json:"content"`
-	ImagePath      string `json:"image_path"`
-	CreatedAt      string `json:"created_at"`
+	ID               int    `json:"id"`
+	GroupID          int    `json:"group_id"`
+	UserID           int    `json:"user_id"`
+	AuthorName       string `json:"author_name"`
+	AuthorNickname   string `json:"author_nickname"`
+	AuthorAvatarPath string `json:"author_avatar_path"`
+	Content          string `json:"content"`
+	ImagePath        string `json:"image_path"`
+	CreatedAt        string `json:"created_at"`
 }
 
 type CreateGroupCommentRequest struct {
@@ -194,14 +204,33 @@ type CreateGroupCommentRequest struct {
 }
 
 type GroupCommentResponse struct {
-	ID             int    `json:"id"`
-	GroupPostID    int    `json:"group_post_id"`
-	UserID         int    `json:"user_id"`
-	AuthorName     string `json:"author_name"`
-	AuthorNickname string `json:"author_nickname"`
-	Content        string `json:"content"`
-	ImagePath      string `json:"image_path"`
-	CreatedAt      string `json:"created_at"`
+	ID               int    `json:"id"`
+	GroupPostID      int    `json:"group_post_id"`
+	UserID           int    `json:"user_id"`
+	AuthorName       string `json:"author_name"`
+	AuthorNickname   string `json:"author_nickname"`
+	AuthorAvatarPath string `json:"author_avatar_path"`
+	Content          string `json:"content"`
+	ImagePath        string `json:"image_path"`
+	CreatedAt        string `json:"created_at"`
+}
+
+type GroupMemberListItem struct {
+	ID         int    `json:"id"`
+	FirstName  string `json:"first_name"`
+	LastName   string `json:"last_name"`
+	Nickname   string `json:"nickname"`
+	AvatarPath string `json:"avatar_path"`
+	Role       string `json:"role"`
+}
+
+type GroupInviteCandidate struct {
+	ID int `json:"id"`
+
+	FirstName  string `json:"first_name"`
+	LastName   string `json:"last_name"`
+	Nickname   string `json:"nickname"`
+	AvatarPath string `json:"avatar_path"`
 }
 
 // group events
@@ -212,34 +241,37 @@ type CreateGroupEventRequest struct {
 }
 
 type GroupEventResponse struct {
-	ID            int    `json:"id"`
-	GroupID       int    `json:"group_id"`
-	CreatorID     int    `json:"creator_id"`
-	CreatorName   string `json:"creator_name"`
-	Title         string `json:"title"`
-	Description   string `json:"description"`
-	EventTime     string `json:"event_time"`
-	GoingCount    int    `json:"going_count"`
-	NotGoingCount int    `json:"not_going_count"`
-	MyResponse    string `json:"my_response"`
-	CreatedAt     string `json:"created_at"`
+	ID                int    `json:"id"`
+	GroupID           int    `json:"group_id"`
+	CreatorID         int    `json:"creator_id"`
+	CreatorName       string `json:"creator_name"`
+	CreatorAvatarPath string `json:"creator_avatar_path"`
+	Title             string `json:"title"`
+	Description       string `json:"description"`
+	EventTime         string `json:"event_time"`
+	GoingCount        int    `json:"going_count"`
+	NotGoingCount     int    `json:"not_going_count"`
+	MyResponse        string `json:"my_response"`
+	CreatedAt         string `json:"created_at"`
 }
 
 // private chat
 type ChatUserResponse struct {
-	ID        int    `json:"id"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	Nickname  string `json:"nickname"`
+	ID         int    `json:"id"`
+	FirstName  string `json:"first_name"`
+	LastName   string `json:"last_name"`
+	Nickname   string `json:"nickname"`
+	AvatarPath string `json:"avatar_path"`
 }
 
 type PrivateMessageResponse struct {
-	ID         int    `json:"id"`
-	SenderID   int    `json:"sender_id"`
-	ReceiverID int    `json:"receiver_id"`
-	SenderName string `json:"sender_name"`
-	Content    string `json:"content"`
-	CreatedAt  string `json:"created_at"`
+	ID               int    `json:"id"`
+	SenderID         int    `json:"sender_id"`
+	ReceiverID       int    `json:"receiver_id"`
+	SenderName       string `json:"sender_name"`
+	SenderAvatarPath string `json:"sender_avatar_path"`
+	Content          string `json:"content"`
+	CreatedAt        string `json:"created_at"`
 }
 
 type WebSocketEvent struct {
@@ -248,11 +280,27 @@ type WebSocketEvent struct {
 	Error string `json:"error,omitempty"`
 }
 
+type PresenceUpdate struct {
+	UserID int  `json:"user_id"`
+	Online bool `json:"online"`
+}
+
+type PresenceSnapshot struct {
+	UserIDs []int `json:"user_ids"`
+}
+
 type IncomingWebSocketEvent struct {
 	Type       string `json:"type"`
 	ReceiverID int    `json:"receiver_id,omitempty"`
 	GroupID    int    `json:"group_id,omitempty"`
 	Content    string `json:"content,omitempty"`
+	Typing     bool   `json:"typing,omitempty"`
+}
+
+type PrivateTypingUpdate struct {
+	SenderID   int  `json:"sender_id"`
+	ReceiverID int  `json:"receiver_id"`
+	Typing     bool `json:"typing"`
 }
 
 type HubDelivery struct {
@@ -282,10 +330,11 @@ type Client struct {
 
 // group chat
 type GroupMessageResponse struct {
-	ID         int    `json:"id"`
-	GroupID    int    `json:"group_id"`
-	SenderID   int    `json:"sender_id"`
-	SenderName string `json:"sender_name"`
-	Content    string `json:"content"`
-	CreatedAt  string `json:"created_at"`
+	ID               int    `json:"id"`
+	GroupID          int    `json:"group_id"`
+	SenderID         int    `json:"sender_id"`
+	SenderName       string `json:"sender_name"`
+	SenderAvatarPath string `json:"sender_avatar_path"`
+	Content          string `json:"content"`
+	CreatedAt        string `json:"created_at"`
 }

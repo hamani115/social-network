@@ -1,209 +1,93 @@
 <template>
-  <main>
-    <p v-if="loading">Loading profile...</p>
-    <p v-if="error">{{ error }}</p>
+  <main class="profile-page">
+    <p v-if="loading" class="status-message">Loading profile...</p>
 
-    <section v-if="profile">
-      <h1>
-        {{ profile.first_name }} {{ profile.last_name }}
-      </h1>
+    <p v-if="error" class="error-message">
+      {{ error }}
+    </p>
 
-      <p>
-        Profile:
-        <strong>
-          {{ profile.is_public ? "Public" : "Private" }}
-        </strong>
-      </p>
+    <section v-if="profile" class="profile-container">
+      <div v-if="updateMessage" class="profile-success-message" role="status">
+        <span>
+          {{ updateMessage }}
+        </span>
 
-      <section v-if="profile.can_view_profile">
-        <img v-if="profile.avatar_path" :src="imageUrl(profile.avatar_path)" alt="Profile avatar"
-          style="max-width: 200px" />
-
-        <p>
-          Email:
-          <strong>{{ profile.email }}</strong>
-        </p>
-
-        <p>
-          Date of Birth:
-          <strong>{{ profile.date_of_birth }}</strong>
-        </p>
-
-        <p v-if="profile.nickname">
-          Nickname:
-          <strong>{{ profile.nickname }}</strong>
-        </p>
-
-        <p v-if="profile.about_me">
-          About Me:
-          {{ profile.about_me }}
-        </p>
-
-        <p>
-          Followers: <strong>{{ profile.followers_count }}</strong>
-          |
-          Following: <strong>{{ profile.following_count }}</strong>
-        </p>
-      </section>
-
-      <section v-if="profile.can_view_profile">
-        <h2>Followers</h2>
-
-        <p v-if="loadingFollowLists">Loading followers...</p>
-        <p v-if="followListsError">{{ followListsError }}</p>
-
-        <p v-if="followers.length === 0">
-          No followers yet.
-        </p>
-
-        <ul>
-          <li v-for="user in followers" :key="user.id">
-            <router-link :to="`/profiles/${user.id}`">
-              {{ user.first_name }} {{ user.last_name }}
-            </router-link>
-            <span v-if="user.nickname">
-              - {{ user.nickname }}
-            </span>
-          </li>
-        </ul>
-
-        <h2>Following</h2>
-
-        <p v-if="following.length === 0">
-          Not following anyone yet.
-        </p>
-
-        <ul>
-          <li v-for="user in following" :key="user.id">
-            <router-link :to="`/profiles/${user.id}`">
-              {{ user.first_name }} {{ user.last_name }}
-            </router-link>
-            <span v-if="user.nickname">
-              - {{ user.nickname }}
-            </span>
-          </li>
-        </ul>
-      </section>
-
-      <p v-if="profile.can_view_profile && profile.about_me">
-        About me: {{ profile.about_me }}
-      </p>
-
-      <p v-if="!profile.can_view_profile">
-        This profile is private. Follow this user to see more information.
-      </p>
-
-      <section v-if="!profile.is_owner">
-        <p>
-          Follow status:
-          <strong>{{ profile.follow_status }}</strong>
-        </p>
-
-        <button v-if="profile.follow_status === 'none'" @click="followUser">
-          Follow
+        <button
+          type="button"
+          class="profile-success-dismiss"
+          aria-label="Dismiss profile update message"
+          @click="updateMessage = ''"
+        >
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
         </button>
+      </div>
 
-        <button v-else-if="profile.follow_status === 'following'" @click="unfollowUser">
-          Unfollow
-        </button>
+      <ProfileHeader
+        :profile="profile"
+        @follow="followUser"
+        @unfollow="unfollowUser"
+        @edit="openEditModal"
+      />
 
-        <button v-else-if="profile.follow_status === 'pending'" @click="unfollowUser">
-          Cancel Request
-        </button>
-      </section>
+      <ProfileConnections v-if="profile.can_view_profile" :profile="profile" />
 
-      <section v-if="profile.is_owner">
-        <h2>Edit Profile</h2>
-
-        <form @submit.prevent="updateProfile">
-          <div>
-            <label for="nickname">Nickname</label>
-            <input id="nickname" v-model="editForm.nickname" type="text" />
-          </div>
-
-          <div>
-            <label for="about_me">About Me</label>
-            <textarea id="about_me" v-model="editForm.about_me"></textarea>
-          </div>
-
-          <div>
-            <label>
-              <input v-model="editForm.is_public" type="checkbox" />
-              Public profile
-            </label>
-          </div>
-
-          <button type="submit">Save Profile</button>
-        </form>
-
-        <p v-if="updateMessage">{{ updateMessage }}</p>
-      </section>
-
-      <hr />
-
-      <section>
-        <section v-if="profile.can_view_profile">
-          <h2>Posts</h2>
-
-          <p v-if="loadingPosts">Loading posts...</p>
-          <p v-if="postsError">{{ postsError }}</p>
-
-          <p v-if="posts.length === 0">
-            No posts to show.
-          </p>
-
-          <article v-for="post in posts" :key="post.id">
-            <h3>{{ post.author_name }}</h3>
-
-            <p>
-              Privacy:
-              <strong>{{ post.privacy }}</strong>
-            </p>
-
-            <p>{{ post.content }}</p>
-
-            <img v-if="post.image_path" :src="imageUrl(post.image_path)" alt="Post image" style="max-width: 300px" />
-
-            <p>{{ post.created_at }}</p>
-
-            <hr />
-          </article>
-        </section>
-      </section>
+      <ProfileActivity v-if="profile.can_view_profile" :profile="profile" />
     </section>
   </main>
+  <EditProfileModal
+    v-if="editModalOpen"
+    :profile="profile"
+    @close="editModalOpen = false"
+    @updated="handleProfileUpdated"
+  />
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { apiRequest } from "../services/api";
+import { useAuthStore } from "../stores/auth";
+
+import ProfileHeader from "../components/profile/ProfileHeader.vue";
+import ProfileConnections from "../components/profile/ProfileConnections.vue";
+import ProfileActivity from "../components/profile/ProfileActivity.vue";
+import EditProfileModal from "../components/profile/EditProfileModal.vue";
 
 const route = useRoute();
+const auth = useAuthStore();
 
 const profile = ref(null);
-const posts = ref([]);
-const followers = ref([]);
-const following = ref([]);
-
 const loading = ref(false);
-const loadingPosts = ref(false);
-const loadingFollowLists = ref(false);
-
 const error = ref("");
-const postsError = ref("");
-const followListsError = ref("");
 
 const updateMessage = ref("");
+const editModalOpen = ref(false);
 
-const editForm = ref({
-  nickname: "",
-  about_me: "",
-  is_public: true,
-});
+function openEditModal() {
+  updateMessage.value = "";
+  editModalOpen.value = true;
+}
 
 function isMyProfileRoute() {
   return route.path === "/profile/me";
+}
+
+async function handleProfileUpdated() {
+  editModalOpen.value = false;
+
+  await loadProfile();
+
+  if (isMyProfileRoute() && auth.user && profile.value) {
+    Object.assign(auth.user, {
+      email: profile.value.email,
+      first_name: profile.value.first_name,
+      last_name: profile.value.last_name,
+      nickname: profile.value.nickname,
+      avatar_path: profile.value.avatar_path,
+    });
+  }
+
+  updateMessage.value = "Profile updated successfully";
 }
 
 function profileApiPath() {
@@ -221,78 +105,10 @@ async function loadProfile() {
     updateMessage.value = "";
 
     profile.value = await apiRequest(profileApiPath());
-
-    editForm.value.nickname = profile.value.nickname || "";
-    editForm.value.about_me = profile.value.about_me || "";
-    editForm.value.is_public = profile.value.is_public;
-
-    if (profile.value.can_view_profile) {
-      await loadProfilePosts();
-      await loadFollowLists();
-    } else {
-      posts.value = [];
-      followers.value = [];
-      following.value = [];
-    };
   } catch (err) {
     error.value = err.message;
   } finally {
     loading.value = false;
-  }
-}
-
-async function loadProfilePosts() {
-  if (!profile.value) return;
-
-  try {
-    loadingPosts.value = true;
-    postsError.value = "";
-
-    posts.value = await apiRequest(`/profiles/${profile.value.id}/posts`);
-  } catch (err) {
-    postsError.value = err.message;
-  } finally {
-    loadingPosts.value = false;
-  }
-}
-
-async function loadFollowLists() {
-  if (!profile.value) return;
-
-  try {
-    loadingFollowLists.value = true;
-    followListsError.value = "";
-
-    followers.value = await apiRequest(`/users/${profile.value.id}/followers`);
-    following.value = await apiRequest(`/users/${profile.value.id}/following`);
-  } catch (err) {
-    followers.value = [];
-    following.value = [];
-    followListsError.value = err.message;
-  } finally {
-    loadingFollowLists.value = false;
-  }
-}
-
-async function updateProfile() {
-  try {
-    error.value = "";
-    updateMessage.value = "";
-
-    await apiRequest("/profile/me", {
-      method: "PUT",
-      body: JSON.stringify({
-        nickname: editForm.value.nickname,
-        about_me: editForm.value.about_me,
-        is_public: editForm.value.is_public,
-      }),
-    });
-
-    updateMessage.value = "Profile updated successfully.";
-
-    await loadProfile();
-  } catch (err) {
-    error.value = err.message;
   }
 }
 
@@ -328,10 +144,6 @@ async function unfollowUser() {
   }
 }
 
-function imageUrl(path) {
-  return path;
-}
-
 onMounted(() => {
   loadProfile();
 });
@@ -340,6 +152,89 @@ watch(
   () => route.fullPath,
   () => {
     loadProfile();
-  }
+  },
 );
 </script>
+
+<style scoped>
+.profile-page {
+  width: 100%;
+  padding: 28px 20px 60px;
+}
+
+.profile-container {
+  width: min(1100px, 100%);
+  margin: 0 auto;
+}
+
+/* GENERAL MESSAGES */
+
+.status-message,
+.error-message {
+  width: min(1100px, 100%);
+
+  margin: 20px auto;
+}
+
+.error-message {
+  color: #f87171;
+}
+
+/* PROFILE UPDATE MESSAGE */
+
+.profile-success-message {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 16px;
+
+  margin: 0 0 16px;
+
+  padding: 10px 12px 10px 16px;
+
+  border: 1px solid rgba(74, 222, 128, 0.2);
+
+  border-radius: 10px;
+
+  color: #86efac;
+
+  background: rgba(74, 222, 128, 0.07);
+
+  font-size: 14px;
+}
+
+.profile-success-dismiss {
+  flex-shrink: 0;
+
+  width: 30px;
+  height: 30px;
+  min-height: 0;
+
+  padding: 0;
+
+  border: none;
+  border-radius: 50%;
+
+  color: #86efac;
+  background: transparent;
+
+  font-size: 21px;
+  line-height: 1;
+
+  cursor: pointer;
+}
+
+.profile-success-dismiss:hover {
+  color: #dcfce7;
+
+  background: rgba(74, 222, 128, 0.1);
+}
+
+@media (max-width: 700px) {
+  .profile-page {
+    padding: 16px 12px 40px;
+  }
+
+}
+</style>

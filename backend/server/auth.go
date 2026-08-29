@@ -9,13 +9,13 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func registerHandler(w http.ResponseWriter,	r *http.Request) {
+func registerHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		errorJSON(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body,	maxUploadSize)
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
 
 	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
 		errorJSON(w, "could not read registration form", http.StatusBadRequest)
@@ -28,11 +28,11 @@ func registerHandler(w http.ResponseWriter,	r *http.Request) {
 	// }
 
 	email := strings.TrimSpace(r.FormValue("email"))
-	password :=	r.FormValue("password")
+	password := r.FormValue("password")
 	firstName := strings.TrimSpace(r.FormValue("first_name"))
-	lastName :=	strings.TrimSpace(r.FormValue("last_name"))
+	lastName := strings.TrimSpace(r.FormValue("last_name"))
 	dateOfBirth := strings.TrimSpace(r.FormValue("date_of_birth"))
-	nickname :=	strings.TrimSpace(r.FormValue("nickname"))
+	nickname := strings.TrimSpace(r.FormValue("nickname"))
 	aboutMe := strings.TrimSpace(r.FormValue("about_me"))
 
 	if email == "" || password == "" || firstName == "" || lastName == "" || dateOfBirth == "" {
@@ -43,7 +43,7 @@ func registerHandler(w http.ResponseWriter,	r *http.Request) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 
 	if err != nil {
-		errorJSON(w, "could not hash password",	http.StatusInternalServerError)
+		errorJSON(w, "could not hash password", http.StatusInternalServerError)
 		return
 	}
 
@@ -53,6 +53,14 @@ func registerHandler(w http.ResponseWriter,	r *http.Request) {
 		errorJSON(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	keepAvatar := false
+
+	defer func() {
+		if !keepAvatar {
+			removeUploadedImage(avatarPath)
+		}
+	}()
 
 	_, err = db.Exec(`
 		INSERT INTO users (
@@ -81,6 +89,8 @@ func registerHandler(w http.ResponseWriter,	r *http.Request) {
 		errorJSON(w, "could not create user, email may already exist", http.StatusBadRequest)
 		return
 	}
+
+	keepAvatar = true
 
 	writeJSON(w, http.StatusCreated,
 		map[string]string{
@@ -183,10 +193,16 @@ func meHandler(w http.ResponseWriter, r *http.Request) {
 	var user User
 
 	err := db.QueryRow(`
-		SELECT id, email, first_name, last_name, COALESCE(nickname, '')
+		SELECT
+			id,
+			email,
+			first_name,
+			last_name,
+			COALESCE(nickname, ''),
+			COALESCE(avatar_path, '')
 		FROM users
 		WHERE id = ?
-	`, userID).Scan(&user.ID, &user.Email, &user.FirstName, &user.LastName, &user.Nickname)
+	`, userID).Scan(&user.ID, &user.Email, &user.FirstName, &user.LastName, &user.Nickname, &user.AvatarPath)
 
 	if err != nil {
 		errorJSON(w, "user not found", http.StatusNotFound)
