@@ -18,7 +18,7 @@
     </p>
 
     <p v-else-if="posts.length === 0" class="empty-text">
-      No posts to show yet.
+      No posts to show yet
     </p>
 
     <div v-else class="activity-list">

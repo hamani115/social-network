@@ -9,20 +9,7 @@
     </p>
 
     <div class="chat-layout">
-      <!-- USERS -->
       <aside class="chat-users-panel">
-        <header class="chat-users-header">
-          <div>
-            <h2>Chats</h2>
-
-            <span>
-              {{ chatUsers.length }}
-              chats
-            </span>
-          </div>
-        </header>
-
-        <!-- SEARCH -->
         <div class="chat-user-search">
           <span aria-hidden="true">
             <i class="fa-solid fa-magnifying-glass"></i>
@@ -734,28 +721,6 @@ onUnmounted(() => {
   border-right: 1px solid var(--border-soft);
 
   background: var(--bg-secondary);
-}
-
-.chat-users-header {
-  margin-bottom: 14px;
-}
-
-.chat-users-header > div {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-
-  gap: 10px;
-}
-
-.chat-users-header h2 {
-  margin: 0;
-}
-
-.chat-users-header span {
-  color: var(--text-muted);
-
-  font-size: 10px;
 }
 
 .chat-user-search {
