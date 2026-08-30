@@ -23,7 +23,6 @@
 
     <div v-else class="activity-list">
       <article v-for="post in posts" :key="post.id" class="activity-post">
-        <!-- Post author -->
         <div class="post-author-row">
           <router-link
             :to="`/profiles/${profile.id}`"
@@ -72,7 +71,6 @@
           {{ post.content }}
         </p>
 
-        <!-- Post image -->
         <div v-if="post.image_path" class="post-image-wrapper">
           <img :src="post.image_path" alt="Post image" class="post-image" />
         </div>
@@ -199,8 +197,6 @@ watch(
   font-style: italic;
 }
 
-/* Activity */
-
 .activity-card {
   padding-bottom: 8px;
 }
@@ -220,8 +216,6 @@ watch(
   scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
 }
 
-/* Post */
-
 .activity-post {
   margin: 0;
   padding: 22px 30px 26px;
@@ -237,8 +231,6 @@ watch(
 .activity-post:first-child {
   border-top: none;
 }
-
-/* Author */
 
 .post-author-row {
   display: flex;
@@ -309,8 +301,6 @@ watch(
   font-size: 13px;
 }
 
-/* Post metadata */
-
 .post-meta {
   display: flex;
   align-items: center;
@@ -330,8 +320,6 @@ watch(
   font-size: 10px;
 }
 
-/* Post content */
-
 .post-content {
   margin: 18px 0 0;
 
@@ -343,8 +331,6 @@ watch(
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-
-/* Post image */
 
 .post-image-wrapper {
   overflow: hidden;
@@ -368,9 +354,6 @@ watch(
 
   background: #0d1117;
 }
-
-/* States */
-
 .activity-status {
   padding-bottom: 18px;
 
@@ -382,8 +365,6 @@ watch(
 
   color: #f87171;
 }
-
-/* Scrollbar */
 
 .activity-list::-webkit-scrollbar {
   width: 8px;

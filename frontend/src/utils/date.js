@@ -1,5 +1,4 @@
 // Date and time
-
 export function formatDateTime(value) {
   if (!value) {
     return "";
@@ -39,7 +38,6 @@ export function formatDate(value) {
 }
 
 // date of birth
-
 export function formatDateOfBirth(value) {
   if (!value) {
     return "";
@@ -61,7 +59,6 @@ export function formatDateOfBirth(value) {
 }
 
 // Group events
-
 function eventDateObject(value) {
   if (!value) {
     return null;
@@ -121,7 +118,6 @@ export function currentLocalDateTimeForBackend() {
 }
 
 // Notifications
-
 function notificationDate(value) {
   if (!value) {
     return null;
@@ -182,7 +178,6 @@ export function formatNotificationTime(value) {
 }
 
 // date inputs
-
 export function todayDateInput() {
   const now = new Date();
   const year = now.getFullYear();

@@ -1,7 +1,6 @@
 <template>
   <main class="feed-page">
     <div class="feed-layout">
-      <!-- MAIN FEED COLUMN -->
 
       <div class="feed-main">
         <header class="feed-heading">
@@ -9,7 +8,6 @@
         </header>
 
         <!-- CREATE POST -->
-
         <section class="post-trigger-card">
           <UserAvatar
             :avatar-path="auth.user.avatar_path"
@@ -54,13 +52,13 @@
             Loading posts...
           </div>
 
-          <!-- ERROR -->
+          
 
           <div v-else-if="loadError" class="feed-state feed-state-error">
             {{ loadError }}
           </div>
 
-          <!-- EMPTY -->
+          
 
           <div v-else-if="posts.length === 0" class="empty-state">
             <div class="empty-state-icon">
@@ -73,8 +71,6 @@
           <!-- POST CARDS -->
 
           <article v-for="post in posts" :key="post.id" class="post-card">
-            <!-- POST HEADER -->
-
             <header class="post-card-header">
               <router-link
                 :to="`/profiles/${post.user_id}`"
@@ -119,8 +115,6 @@
               </div>
             </header>
 
-            <!-- POST CONTENT -->
-
             <div class="post-card-body">
               <p class="post-content">
                 {{ post.content }}
@@ -133,8 +127,6 @@
                 class="post-image"
               />
             </div>
-
-            <!-- POST ACTION + COMMENT COUNT -->
 
             <div class="post-actions">
               <button
@@ -192,8 +184,6 @@
                 }}
               </button>
 
-              <!-- COMMENT -->
-
               <div
                 v-for="comment in commentsByPost[post.id] || []"
                 :key="comment.id"
@@ -243,8 +233,6 @@
                   />
                 </div>
               </div>
-
-              <!-- COMMENT FORM -->
 
               <form
                 class="comment-form"
@@ -315,8 +303,6 @@
               Loading more posts...
             </div>
 
-            <!-- LOAD-MORE ERROR -->
-
             <div v-else-if="loadMoreError" class="feed-load-more-error">
               <span>
                 {{ loadMoreError }}
@@ -358,7 +344,7 @@
         aria-modal="true"
         aria-labelledby="create-post-title"
       >
-        <!-- HEADER -->
+        
 
         <header class="post-modal-header">
           <div>
@@ -376,11 +362,10 @@
           </button>
         </header>
 
-        <!-- FORM -->
+        <!-- POST FORM -->
 
         <form class="post-form post-modal-form" @submit.prevent="createPost">
           <div class="post-modal-body">
-            <!-- AUTHOR -->
 
             <div class="post-modal-author">
               <UserAvatar
@@ -402,7 +387,6 @@
             </div>
 
             <!-- CONTENT -->
-
             <textarea
               v-model="newPostContent"
               class="post-textarea"
@@ -411,7 +395,6 @@
             ></textarea>
 
             <!-- PRIVATE AUDIENCE -->
-
             <div v-if="newPostPrivacy === 'private'" class="audience-picker">
               <div class="audience-picker-header">
                 <strong> Choose your audience </strong>
@@ -458,8 +441,6 @@
               </div>
             </div>
 
-            <!-- SELECTED FILE -->
-
             <div v-if="newPostImage" class="selected-file">
               <span> Attached: </span>
 
@@ -473,11 +454,8 @@
             </p>
           </div>
 
-          <!-- FOOTER -->
-
           <footer class="post-modal-footer">
             <div class="post-tools">
-              <!-- IMAGE -->
 
               <label for="post-image" class="toolbar-button">
                 <span class="toolbar-icon">
@@ -497,7 +475,6 @@
               />
 
               <!-- PRIVACY -->
-
               <div class="privacy-control">
                 <label for="post-privacy" class="visually-hidden">
                   Post visibility
@@ -547,6 +524,7 @@ import { formatDateTime } from "../utils/date";
 import UserAvatar from "../components/UserAvatar.vue";
 
 const auth = useAuthStore();
+
 // Posts
 const posts = ref([]);
 const loading = ref(false);
@@ -566,12 +544,12 @@ const loadMoreError = ref("");
 const loadMoreTrigger = ref(null);
 
 let postObserver = null;
-// Create Post
+
 const newPostContent = ref("");
 const newPostPrivacy = ref("public");
 const postModalOpen = ref(false);
 const posting = ref(false);
-// Create Comments
+// Comments
 const commentsByPost = ref({});
 const newComments = ref({});
 const commentErrors = ref({});
@@ -586,6 +564,7 @@ const loadingEarlierComments = ref({});
 const commentImageInputs = ref({});
 
 const COMMENTS_PAGE_SIZE = 5;
+
 // Images
 const newPostImage = ref(null);
 const postImageInput = ref(null);

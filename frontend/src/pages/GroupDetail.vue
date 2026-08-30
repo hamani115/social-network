@@ -672,8 +672,6 @@ onMounted(() => {
   width: min(1000px, 100%);
 }
 
-/* PAGE STATES */
-
 .group-page-state {
   min-height: 220px;
 
@@ -701,8 +699,6 @@ onMounted(() => {
 
   font-size: 13px;
 }
-
-/* GROUP HERO */
 
 .group-hero {
   display: flex;
@@ -853,8 +849,6 @@ onMounted(() => {
   font-size: 13px;
 }
 
-/* TABS */
-
 .group-tabs {
   position: sticky;
   top: 64px;
@@ -937,8 +931,6 @@ onMounted(() => {
   font-size: 10px;
 }
 
-/* TAB PANEL */
-
 .group-tab-panel {
   padding: 22px;
 
@@ -994,8 +986,6 @@ onMounted(() => {
   font-size: 11px;
 }
 
-/* SHARED CONTENT */
-
 .group-section-state,
 .group-empty-state {
   color: var(--text-muted);
@@ -1004,8 +994,6 @@ onMounted(() => {
 
   text-align: center;
 }
-
-/* MANAGEMENT */
 
 .management-person {
   min-width: 0;

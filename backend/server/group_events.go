@@ -132,7 +132,6 @@ func listGroupEventsHandler(
 	}
 
 	// PAGINATION
-
 	limit := 10
 
 	if rawLimit :=
@@ -179,7 +178,6 @@ func listGroupEventsHandler(
 	}
 
 	// UPCOMING + PAST
-
 	scope :=
 		strings.ToLower(
 			strings.TrimSpace(
@@ -200,14 +198,12 @@ func listGroupEventsHandler(
 		timeCondition =
 			"group_events.event_time >= ?"
 
-		// Soonest upcoming event first.
 		orderDirection = "ASC"
 
 	case "past":
 		timeCondition =
 			"group_events.event_time < ?"
 
-		// Most recent past event first.
 		orderDirection = "DESC"
 
 	default:

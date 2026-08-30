@@ -1,27 +1,21 @@
 <template>
   <section v-show="active" class="group-tab-panel group-chat-panel">
-    <!-- Header -->
-
     <div class="group-panel-heading">
       <h2>Group chat</h2>
     </div>
-
-    <!-- Error -->
 
     <p v-if="groupMessagesError" class="group-page-error">
       {{ groupMessagesError }}
     </p>
 
-    <!-- Chat window -->
-
+    <!-- Chat -->
     <div class="group-chat-shell">
       <div
         ref="groupMessagesContainer"
         class="group-chat-messages"
         @scroll.passive="handleGroupChatScroll"
       >
-        <!-- Initial loading -->
-
+        <!-- loading -->
         <div
           v-if="loadingGroupMessages && groupMessages.length === 0"
           class="group-chat-loading"
@@ -31,24 +25,19 @@
           Loading messages...
         </div>
 
-        <!-- Loading older -->
-
+        <!-- loading older -->
         <div v-if="loadingOlderGroupMessages" class="group-chat-loading-older">
           <span class="loading-spinner"></span>
 
           Loading older messages...
         </div>
 
-        <!-- Start of chat -->
-
         <p
           v-else-if="!hasMoreGroupMessages && groupMessages.length > 0"
           class="group-chat-start"
         >
-          Beginning of conversation
+          Beginning of chat
         </p>
-
-        <!-- Empty -->
 
         <div
           v-if="!loadingGroupMessages && groupMessages.length === 0"
@@ -60,8 +49,6 @@
 
           <h3>No messages yet</h3>
         </div>
-
-        <!-- Messages -->
 
         <div
           v-for="message in groupMessages"
@@ -95,8 +82,7 @@
         </div>
       </div>
 
-      <!-- New message indicator -->
-
+      <!-- new message indicator -->
       <button
         v-if="newGroupMessageCount > 0"
         type="button"
@@ -113,8 +99,7 @@
       </button>
     </div>
 
-    <!-- Message form -->
-
+    <!-- Message send form -->
     <form class="group-chat-form" @submit.prevent="sendGroupMessage">
       <input
         v-model="groupMessageInput"
@@ -159,8 +144,6 @@ const props = defineProps({
 const auth = useAuthStore();
 const websocket = useWebSocketStore();
 
-// Messages
-
 const groupMessages = ref([]);
 const groupMessageInput = ref("");
 
@@ -179,7 +162,6 @@ let groupMessagesRequestVersion = 0;
 const messagesLoaded = ref(false);
 
 // Scroll
-
 const groupMessagesContainer = ref(null);
 
 const GROUP_CHAT_TOP_THRESHOLD = 80;
@@ -188,8 +170,6 @@ const GROUP_CHAT_BOTTOM_THRESHOLD = 100;
 const groupChatNearBottom = ref(true);
 
 const newGroupMessageCount = ref(0);
-
-// Scroll helpers
 
 function isGroupChatNearBottom() {
   const container = groupMessagesContainer.value;
@@ -211,15 +191,11 @@ function handleGroupChatScroll() {
     return;
   }
 
-  // Bottom
-
   groupChatNearBottom.value = isGroupChatNearBottom();
 
   if (groupChatNearBottom.value) {
     newGroupMessageCount.value = 0;
   }
-
-  // Top
 
   if (
     container.scrollTop <= GROUP_CHAT_TOP_THRESHOLD &&
@@ -359,8 +335,7 @@ async function loadGroupMessages(reset = false) {
   }
 }
 
-// Incoming WebSocket message
-
+// Incoming WebSocket
 function handleIncomingGroupMessage(message) {
   if (!message) {
     return;
@@ -384,8 +359,6 @@ function handleIncomingGroupMessage(message) {
     scrollGroupChatToBottom();
   }
 }
-
-// Send
 
 function sendGroupMessage() {
   groupMessagesError.value = "";
@@ -411,8 +384,6 @@ function sendGroupMessage() {
   groupMessageInput.value = "";
 }
 
-// Reset
-
 function resetGroupChat() {
   groupMessagesRequestVersion += 1;
 
@@ -434,7 +405,6 @@ function resetGroupChat() {
 }
 
 // Active tab
-
 watch(
   () => props.active,
   async (active) => {
@@ -462,7 +432,6 @@ watch(
 );
 
 // Different group
-
 watch(
   () => props.groupId,
   async () => {
@@ -482,8 +451,7 @@ watch(
   },
 );
 
-// WebSocket events
-
+// WebSocket
 watch(
   () => websocket.eventVersion,
   () => {
@@ -507,8 +475,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Panel */
-
 .group-tab-panel {
   padding: 22px;
 
@@ -550,8 +516,6 @@ onUnmounted(() => {
   font-size: 13px;
 }
 
-/* Chat window */
-
 .group-chat-shell {
   position: relative;
 }
@@ -570,8 +534,6 @@ onUnmounted(() => {
 
   scroll-behavior: auto;
 }
-
-/* History */
 
 .group-chat-loading,
 .group-chat-loading-older {
@@ -597,8 +559,6 @@ onUnmounted(() => {
 
   text-align: center;
 }
-
-/* Empty */
 
 .group-chat-empty {
   min-height: 380px;
@@ -634,8 +594,6 @@ onUnmounted(() => {
 
   color: var(--text);
 }
-
-/* Message rows */
 
 .group-chat-message-row {
   display: flex;
@@ -674,8 +632,6 @@ onUnmounted(() => {
   font-size: 9px;
   font-weight: 800;
 }
-
-/* Message */
 
 .group-chat-message {
   max-width: 72%;
@@ -718,8 +674,6 @@ onUnmounted(() => {
   font-size: 9px;
 }
 
-/* New messages */
-
 .group-chat-new-messages {
   position: absolute;
 
@@ -748,8 +702,6 @@ onUnmounted(() => {
   transform: translateX(-50%);
 }
 
-/* Input */
-
 .group-chat-form {
   display: flex;
 
@@ -761,8 +713,6 @@ onUnmounted(() => {
 .group-chat-form input {
   flex: 1;
 }
-
-/* Mobile */
 
 @media (max-width: 700px) {
   .group-tab-panel {

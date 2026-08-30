@@ -378,7 +378,6 @@ func updateMyProfileHandler(
 		isPublicInt = 1
 	}
 
-	// Check whether another user already owns this email.
 	var existingUserID int
 
 	err = db.QueryRow(`

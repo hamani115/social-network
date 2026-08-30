@@ -481,7 +481,6 @@ func listGroupsHandler(
 		r.Context().Value(userIDKey).(int)
 
 	// PAGINATION
-
 	limit := 20
 
 	if rawLimit :=
@@ -528,7 +527,6 @@ func listGroupsHandler(
 	}
 
 	// SEARCH
-
 	searchQuery :=
 		strings.ToLower(
 			strings.TrimSpace(

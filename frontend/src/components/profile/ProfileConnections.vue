@@ -4,7 +4,6 @@
       <h2>Connections</h2>
     </div>
 
-    <!-- Tabs -->
     <div class="connection-tabs">
       <button
         type="button"
@@ -132,8 +131,6 @@ const visibleConnections = computed(() => {
   return activeConnections.value.slice(0, connectionPreviewLimit);
 });
 
-// Connections
-
 async function loadFollowLists() {
   if (!props.profile?.id) {
     return;
@@ -224,8 +221,6 @@ watch(
   font-style: italic;
 }
 
-/* Connection tabs */
-
 .connection-tabs {
   display: flex;
 
@@ -282,8 +277,6 @@ watch(
 .connection-tab.active span {
   color: #80b7ff;
 }
-
-/* Connection list */
 
 .connections-list {
   display: flex;
@@ -385,8 +378,6 @@ watch(
   white-space: nowrap;
 }
 
-/* States */
-
 .connections-status {
   color: #94a3b8;
 }
@@ -398,8 +389,6 @@ watch(
 .connections-empty {
   margin-bottom: 0;
 }
-
-/* Show all */
 
 .connections-more-button {
   width: 100%;

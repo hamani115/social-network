@@ -1,7 +1,5 @@
 <template>
   <main class="groups-page">
-    <!-- HEADER -->
-
     <header class="groups-header">
       <div>
         <h1>Groups</h1>
@@ -137,8 +135,6 @@
 
         Loading groups...
       </div>
-
-      <!-- ERROR -->
 
       <p v-else-if="groupsError" class="groups-error">
         {{ groupsError }}
@@ -395,85 +391,44 @@
 
 <script setup>
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
-
 import { apiRequest } from "../services/api";
-
 import { useWebSocketStore } from "../stores/websocket";
 
 const websocket = useWebSocketStore();
 
 const groups = ref([]);
-
 const myInvitations = ref([]);
 
-
-// DIRECTORY STATE
-
-
 const loadingGroups = ref(false);
-
 const loadingMoreGroups = ref(false);
-
 const groupsError = ref("");
-
 const groupsLoadMoreError = ref("");
-
 const GROUPS_PAGE_SIZE = 20;
 
 const groupOffset = ref(0);
-
 const hasMoreGroups = ref(true);
-
 const groupsLoadTrigger = ref(null);
-
 let groupsObserver = null;
 
-
-// SEARCH
-
-
 const searchQuery = ref("");
-
 const debouncedSearchQuery = ref("");
-
 let searchDebounceTimer = null;
-
 let groupsRequestVersion = 0;
 
-
-// INVITATIONS
-
-
 const loadingInvitations = ref(false);
-
 const invitationsError = ref("");
-
 const changingInvitationId = ref(null);
-
-
-// GROUP ACTIONS
-
 
 const changingGroupId = ref(null);
 
-
-// CREATE GROUP
-
-
 const createGroupModalOpen = ref(false);
-
 const creatingGroup = ref(false);
-
 const createError = ref("");
 
 const newGroup = ref({
   title: "",
   description: "",
 });
-
-
-// HELPERS
-
 
 function groupInitials(title) {
   if (!title) {
@@ -493,25 +448,17 @@ function membershipLabel(status) {
   switch (status) {
     case "owner":
       return "Owner";
-
     case "member":
       return "Member";
-
     case "pending":
       return "Pending";
-
     case "invited":
       return "Invited";
-
     default:
-      console.log("STATUS", status)
+      console.log("STATUS", status);
       return "";
   }
 }
-
-
-// LOAD GROUPS
-
 
 async function loadGroups(reset = false) {
   if (
@@ -523,18 +470,13 @@ async function loadGroups(reset = false) {
 
   if (reset) {
     groupsRequestVersion += 1;
-
     groups.value = [];
-
     groupOffset.value = 0;
-
     hasMoreGroups.value = true;
-
     groupsLoadMoreError.value = "";
   }
 
   const requestVersion = groupsRequestVersion;
-
   const initialLoad = groupOffset.value === 0;
 
   try {
@@ -547,9 +489,7 @@ async function loadGroups(reset = false) {
     }
 
     const params = new URLSearchParams();
-
     params.set("limit", String(GROUPS_PAGE_SIZE));
-
     params.set("offset", String(groupOffset.value));
 
     if (debouncedSearchQuery.value) {
@@ -597,10 +537,6 @@ async function loadGroups(reset = false) {
   }
 }
 
-
-// SEARCH
-
-
 watch(searchQuery, (value) => {
   if (searchDebounceTimer) {
     clearTimeout(searchDebounceTimer);
@@ -626,10 +562,6 @@ async function clearSearch() {
 
   await loadGroups(true);
 }
-
-
-// INFINITE SCROLL
-
 
 function observeGroupsTrigger(element) {
   if (groupsObserver) {
@@ -669,14 +601,9 @@ watch(groupsLoadTrigger, (element) => {
   observeGroupsTrigger(element);
 });
 
-
-// INVITATIONS
-
-
 async function loadMyInvitations() {
   try {
     loadingInvitations.value = true;
-
     invitationsError.value = "";
 
     myInvitations.value = await apiRequest("/group-invitations");
@@ -690,7 +617,6 @@ async function loadMyInvitations() {
 async function acceptInvitation(invitation) {
   try {
     changingInvitationId.value = invitation.id;
-
     invitationsError.value = "";
 
     await apiRequest(`/group-invitations/${invitation.id}/accept`, {
@@ -718,7 +644,6 @@ async function acceptInvitation(invitation) {
 async function declineInvitation(invitation) {
   try {
     changingInvitationId.value = invitation.id;
-
     invitationsError.value = "";
 
     await apiRequest(`/group-invitations/${invitation.id}/decline`, {
@@ -740,10 +665,6 @@ async function declineInvitation(invitation) {
     changingInvitationId.value = null;
   }
 }
-
-
-// JOIN + CANCEL
-
 
 async function requestJoinGroup(group) {
   try {
@@ -781,19 +702,13 @@ async function cancelJoinRequest(group) {
   }
 }
 
-
-// CREATE GROUP
-
-
 function openCreateGroupModal() {
   createError.value = "";
-
   createGroupModalOpen.value = true;
 }
 
 function resetCreateGroupForm() {
   newGroup.value.title = "";
-
   newGroup.value.description = "";
 }
 
@@ -803,7 +718,6 @@ function closeCreateGroupModal() {
   }
 
   createGroupModalOpen.value = false;
-
   createError.value = "";
 
   resetCreateGroupForm();
@@ -812,7 +726,6 @@ function closeCreateGroupModal() {
 async function createGroup() {
   try {
     creatingGroup.value = true;
-
     createError.value = "";
 
     await apiRequest("/groups", {
@@ -820,7 +733,6 @@ async function createGroup() {
 
       body: JSON.stringify({
         title: newGroup.value.title,
-
         description: newGroup.value.description,
       }),
     });
@@ -829,17 +741,12 @@ async function createGroup() {
 
     createGroupModalOpen.value = false;
 
-    // Show the newly-created group
-    // by returning to the normal
-    // newest group listing.
     if (searchDebounceTimer) {
       clearTimeout(searchDebounceTimer);
-
       searchDebounceTimer = null;
     }
 
     searchQuery.value = "";
-
     debouncedSearchQuery.value = "";
 
     await loadGroups(true);
@@ -849,9 +756,6 @@ async function createGroup() {
     creatingGroup.value = false;
   }
 }
-
-
-// LIFECYCLE
 
 
 onMounted(async () => {
@@ -874,8 +778,6 @@ onBeforeUnmount(() => {
   width: min(1000px, 100%);
 }
 
-/* HEADER */
-
 .groups-header {
   display: flex;
   align-items: flex-start;
@@ -890,9 +792,6 @@ onBeforeUnmount(() => {
   margin-bottom: 7px;
 }
 
-
-/* SECTION HEADINGS */
-
 .groups-section-heading {
   display: flex;
   align-items: flex-start;
@@ -906,8 +805,6 @@ onBeforeUnmount(() => {
 .groups-section-heading h2 {
   margin-bottom: 4px;
 }
-
-/* INVITATIONS */
 
 .group-invitations-card {
   margin-bottom: 24px;
@@ -959,9 +856,7 @@ onBeforeUnmount(() => {
   padding: 14px 0;
 
   border: 0;
-
   border-top: 1px solid var(--border-soft);
-
   border-radius: 0;
 
   background: transparent;
@@ -996,33 +891,22 @@ onBeforeUnmount(() => {
 
 .group-invitation-info span {
   color: var(--text-muted);
-
   font-size: 12px;
 }
 
 .group-invitation-actions {
   flex-shrink: 0;
-
   display: flex;
-
   gap: 8px;
 }
 
-/* DIRECTORY */
-
 .groups-directory {
   padding: 20px;
-
   border: 1px solid var(--border-soft);
-
   border-radius: var(--radius-lg);
-
   background: var(--surface);
-
   box-shadow: var(--shadow-sm);
 }
-
-/* SEARCH */
 
 .group-search {
   position: relative;
@@ -1039,39 +923,30 @@ onBeforeUnmount(() => {
 
 .group-search-icon {
   position: absolute;
-
   left: 14px;
   top: 50%;
-
   z-index: 1;
 
   color: var(--text-muted);
-
   font-size: 14px;
 
   pointer-events: none;
-
   transform: translateY(-50%);
 }
 
 .group-search-clear {
   position: absolute;
-
   right: 7px;
   top: 50%;
 
   width: 30px;
   height: 30px;
   min-height: 0;
-
   padding: 0;
-
   border: 0;
-
   background: transparent;
 
   color: var(--text-muted);
-
   font-size: 14px;
 
   transform: translateY(-50%);
@@ -1079,17 +954,12 @@ onBeforeUnmount(() => {
 
 .group-search-clear:hover {
   background: var(--surface-2);
-
   color: var(--text);
 }
 
-/* GROUP GRID */
-
 .groups-grid {
   display: grid;
-
   grid-template-columns: repeat(2, minmax(0, 1fr));
-
   gap: 14px;
 }
 
@@ -1100,15 +970,11 @@ onBeforeUnmount(() => {
   flex-direction: column;
 
   gap: 13px;
-
   margin: 0;
-
   padding: 18px;
 
   border: 1px solid var(--border-soft);
-
   border-radius: var(--radius-lg);
-
   background: var(--bg-secondary);
 
   box-shadow: none;
@@ -1116,7 +982,6 @@ onBeforeUnmount(() => {
 
 .group-card:hover {
   border-color: var(--primary-border);
-
   background: var(--surface-2);
 }
 
@@ -1139,9 +1004,7 @@ onBeforeUnmount(() => {
   place-items: center;
 
   border: 1px solid var(--primary-border);
-
   border-radius: 12px;
-
   background: var(--primary-soft);
 
   color: var(--primary);
@@ -1153,7 +1016,6 @@ onBeforeUnmount(() => {
 .group-card-badges {
   display: flex;
   align-items: center;
-
   flex-wrap: wrap;
 
   gap: 6px;
@@ -1165,7 +1027,6 @@ onBeforeUnmount(() => {
   align-items: center;
 
   min-height: 23px;
-
   padding: 2px 8px;
 
   border-radius: var(--radius-round);
@@ -1306,8 +1167,6 @@ onBeforeUnmount(() => {
   font-weight: 650;
 }
 
-/* STATES + PAGINATION */
-
 .groups-state {
   min-height: 80px;
 
@@ -1422,8 +1281,6 @@ onBeforeUnmount(() => {
   font-size: 12px;
 }
 
-/* CREATE GROUP MODAL */
-
 .group-modal-overlay {
   position: fixed;
   inset: 0;
@@ -1516,8 +1373,6 @@ onBeforeUnmount(() => {
 
   border-top: 1px solid var(--border-soft);
 }
-
-/* MOBILE */
 
 @media (max-width: 700px) {
   .groups-header {

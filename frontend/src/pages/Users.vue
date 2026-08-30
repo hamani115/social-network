@@ -129,7 +129,7 @@
         Loading users...
       </div>
 
-      <!-- ERROR -->
+      
 
       <p v-else-if="usersError" class="users-error">
         {{ usersError }}
@@ -260,7 +260,7 @@
           Loading more users...
         </div>
 
-        <!-- ERROR -->
+        
 
         <div v-else-if="usersLoadMoreError" class="users-load-more-error">
           <span>

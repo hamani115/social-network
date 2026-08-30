@@ -1,26 +1,14 @@
 const API_BASE = "/api";
 
-
-// API ERROR
-
-
 export class ApiError extends Error {
   constructor(message, { status = 0, type = "api", path = "" } = {}) {
     super(message);
-
     this.name = "ApiError";
-
     this.status = status;
-
     this.type = type;
-
     this.path = path;
   }
 }
-
-
-// HELPERS
-
 
 export function isServerUnavailableError(error) {
   return (
@@ -74,18 +62,10 @@ function defaultErrorMessage(status) {
   }
 }
 
-
-// REQUEST
-
-
 export async function apiRequest(path, options = {}) {
   const isFormData = options.body instanceof FormData;
 
   let response;
-
-  
-  // NETWORK
-  
 
   try {
     response = await fetch(`${API_BASE}${path}`, {
@@ -112,20 +92,13 @@ export async function apiRequest(path, options = {}) {
 
     dispatchGlobalApiError({
       type: "server-unavailable",
-
       status: 0,
-
       path,
-
       message: error.message,
     });
 
     throw error;
   }
-
-  
-  // RESPONSE BODY
-  
 
   let data = null;
 
@@ -139,40 +112,23 @@ export async function apiRequest(path, options = {}) {
     }
   }
 
-  
-  // ERROR RESPONSE
-  
-
   if (!response.ok) {
     const message = data?.error || defaultErrorMessage(response.status);
 
     const error = new ApiError(message, {
       status: response.status,
-
       type: "http",
-
       path,
     });
-
-    
-    // SESSION EXPIRED
-    
 
     if (response.status === 401 && path !== "/login") {
       dispatchGlobalApiError({
         type: "unauthorized",
-
         status: response.status,
-
         path,
-
         message,
       });
     }
-
-    
-    // SERVER UNAVAILABLE
-    
 
     if (
       response.status === 502 ||
@@ -181,26 +137,17 @@ export async function apiRequest(path, options = {}) {
     ) {
       dispatchGlobalApiError({
         type: "server-unavailable",
-
         status: response.status,
-
         path,
-
         message,
       });
     }
 
-    
-    // GENERIC SERVER ERROR
-    
     else if (response.status >= 500) {
       dispatchGlobalApiError({
         type: "generic",
-
         status: response.status,
-
         path,
-
         message,
       });
     }

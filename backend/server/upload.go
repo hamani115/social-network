@@ -91,11 +91,6 @@ func removeUploadedImage(imagePath string) {
 		return
 	}
 
-	// Database paths look like:
-	// /uploads/posts/example.jpg
-	//
-	// Filesystem paths look like:
-	// uploads/posts/example.jpg
 	filePath := strings.TrimPrefix(
 		imagePath,
 		"/",
@@ -103,9 +98,6 @@ func removeUploadedImage(imagePath string) {
 
 	filePath = filepath.Clean(filePath)
 
-	// Safety check:
-	// never allow this helper to delete
-	// anything outside the uploads directory.
 	slashPath := filepath.ToSlash(filePath)
 
 	if !strings.HasPrefix(

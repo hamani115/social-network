@@ -7,7 +7,7 @@
         aria-modal="true"
         aria-labelledby="edit-profile-title"
       >
-        <!-- HEADER -->
+        
         <header class="modal-header">
           <div>
             <h2 id="edit-profile-title">Edit profile</h2>
@@ -27,7 +27,7 @@
         <!-- FORM -->
         <form class="edit-profile-form" @submit.prevent="updateProfile">
           <div class="modal-body">
-            <!-- Avatar -->
+            
             <div class="edit-field">
               <label for="edit-avatar">Profile picture</label>
 
@@ -109,7 +109,6 @@
               />
             </div>
 
-            <!-- Nickname -->
             <div class="edit-field">
               <label for="edit-nickname">Nickname</label>
 
@@ -121,7 +120,6 @@
               />
             </div>
 
-            <!-- About -->
             <div class="edit-field">
               <div class="field-heading">
                 <label for="edit-about">About</label>
@@ -167,7 +165,6 @@
             </p>
           </div>
 
-          <!-- MODAL FOOTER -->
           <footer class="modal-footer">
             <button
               type="button"
@@ -205,8 +202,6 @@ const props = defineProps({
 
 const emit = defineEmits(["close", "updated"]);
 
-// Form
-
 const editForm = ref({
   email: props.profile.email || "",
   first_name: props.profile.first_name || "",
@@ -223,13 +218,9 @@ const editAvatarInput = ref(null);
 const updatingProfile = ref(false);
 const updateError = ref("");
 
-// Avatar
-
 function handleEditAvatarChange(event) {
   editAvatar.value = event.target.files?.[0] || null;
 }
-
-// Helpers
 
 function userInitials(user) {
   const first = user.first_name?.charAt(0) || "";
@@ -239,8 +230,6 @@ function userInitials(user) {
   return (first + last).toUpperCase();
 }
 
-// Modal
-
 function closeModal() {
   if (updatingProfile.value) {
     return;
@@ -248,8 +237,6 @@ function closeModal() {
 
   emit("close");
 }
-
-// Update profile
 
 async function updateProfile() {
   try {

@@ -167,8 +167,6 @@ watch(
   margin: 0 auto;
 }
 
-/* GENERAL MESSAGES */
-
 .status-message,
 .error-message {
   width: min(1100px, 100%);
@@ -179,8 +177,6 @@ watch(
 .error-message {
   color: #f87171;
 }
-
-/* PROFILE UPDATE MESSAGE */
 
 .profile-success-message {
   display: flex;

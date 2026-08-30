@@ -1,6 +1,6 @@
 <template>
   <main class="notifications-page">
-    <!-- HEADER -->
+    
 
     <header class="notifications-header">
       <h1>Notifications</h1>
@@ -48,7 +48,7 @@
       </button>
     </div>
 
-    <!-- ERROR -->
+    
 
     <p v-if="notifications.error" class="notifications-error">
       {{ notifications.error }}
@@ -62,7 +62,7 @@
       Loading notifications...
     </div>
 
-    <!-- EMPTY -->
+    
 
     <section
       v-else-if="notifications.notifications.length === 0"
@@ -195,13 +195,9 @@ const notifications = useNotificationsStore();
 const notificationsLoadTrigger = ref(null);
 let notificationsObserver = null;
 
-// FILTER
-
 async function setNotificationFilter(filter) {
   await notifications.setFilter(filter);
 }
-
-// OPEN
 
 async function openNotification(notification) {
   if (!notification) {
@@ -218,8 +214,6 @@ async function openNotification(notification) {
     router.push(notification.link_path);
   }
 }
-
-// TYPE
 
 function notificationMeta(type) {
   switch (type) {
@@ -271,8 +265,6 @@ function notificationMeta(type) {
   }
 }
 
-// INFINITE SCROLL
-
 function observeNotificationsTrigger(element) {
   if (notificationsObserver) {
     notificationsObserver.disconnect();
@@ -299,9 +291,7 @@ function observeNotificationsTrigger(element) {
     },
     {
       root: null,
-
       rootMargin: "300px 0px",
-
       threshold: 0,
     },
   );
@@ -313,7 +303,6 @@ watch(notificationsLoadTrigger, (element) => {
   observeNotificationsTrigger(element);
 });
 
-// LIFECYCLE
 
 onMounted(async () => {
   if (!notifications.initialized) {
@@ -329,8 +318,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* PAGE */
-
 .notifications-page {
   width: min(820px, 100%);
 }
@@ -349,8 +336,6 @@ onUnmounted(() => {
   margin-bottom: 6px;
 }
 
-/* FILTER */
-
 .notification-filters {
   width: fit-content;
 
@@ -362,9 +347,7 @@ onUnmounted(() => {
   padding: 4px;
 
   border: 1px solid var(--border-soft);
-
   border-radius: var(--radius-round);
-
   background: var(--surface);
 }
 
@@ -377,9 +360,7 @@ onUnmounted(() => {
   gap: 6px;
 
   padding: 5px 13px;
-
   border: 0;
-
   border-radius: var(--radius-round);
 
   background: transparent;
@@ -420,8 +401,6 @@ onUnmounted(() => {
 
   font-size: 9px;
 }
-
-/* LIST */
 
 .notifications-list {
   overflow: hidden;
@@ -470,8 +449,6 @@ onUnmounted(() => {
   background: rgba(79, 156, 255, 0.09);
 }
 
-/* UNREAD */
-
 .notification-unread-column {
   width: 8px;
 
@@ -489,8 +466,6 @@ onUnmounted(() => {
 
   background: var(--primary);
 }
-
-/* ICON */
 
 .notification-icon {
   width: 42px;
@@ -517,8 +492,6 @@ onUnmounted(() => {
   background: var(--primary-soft);
   color: var(--primary);
 }
-
-/* CONTENT */
 
 .notification-content {
   min-width: 0;
@@ -569,8 +542,6 @@ onUnmounted(() => {
 
   font-size: 12px;
 }
-
-/* EMPTY + LOADING + ERROR */
 
 .notifications-state {
   min-height: 260px;
@@ -642,8 +613,6 @@ onUnmounted(() => {
   font-size: 12px;
 }
 
-/* PAGINATION */
-
 .notifications-pagination {
   padding: 15px;
 
@@ -680,8 +649,6 @@ onUnmounted(() => {
 
   font-size: 11px;
 }
-
-/* MOBILE */
 
 @media (max-width: 700px) {
   .notifications-header {

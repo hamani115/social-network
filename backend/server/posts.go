@@ -27,7 +27,6 @@ func listPostsHandler(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(userIDKey).(int)
 
 	// PAGINATION
-
 	limit := 10
 
 	if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
@@ -72,7 +71,6 @@ func listPostsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// SORTING
-
 	sortValue :=
 		r.URL.Query().Get("sort")
 
@@ -97,10 +95,7 @@ func listPostsHandler(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-
-	// orderDirection is safe here because
-	// it can only be ASC or DESC from the
-	// whitelist above.
+	
 	query := fmt.Sprintf(`
 		SELECT
 			posts.id,

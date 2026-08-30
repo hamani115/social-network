@@ -184,7 +184,6 @@ func listCommentsHandler(w http.ResponseWriter, r *http.Request, postID int) {
 		return
 	}
 
-	// Default amount of comments to load.
 	limit := 5
 
 	if rawLimit :=
@@ -320,9 +319,6 @@ func listCommentsHandler(w http.ResponseWriter, r *http.Request, postID int) {
 		return
 	}
 
-	// We requested one extra record so we
-	// can determine whether earlier
-	// comments still exist.
 	hasMore :=
 		len(comments) > limit
 
@@ -331,9 +327,6 @@ func listCommentsHandler(w http.ResponseWriter, r *http.Request, postID int) {
 			comments[:limit]
 	}
 
-	// SQL returned newest -> oldest.
-	// The UI should display comments
-	// oldest -> newest.
 	for i, j :=
 		0, len(comments)-1; i < j; i, j = i+1, j-1 {
 

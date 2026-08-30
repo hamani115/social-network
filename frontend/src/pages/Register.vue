@@ -194,7 +194,7 @@
             </button>
           </div>
 
-          <!-- ERROR -->
+          
 
           <p v-if="error" class="register-error" role="alert">
             {{ error }}
@@ -252,8 +252,6 @@ const avatarPreview = ref("");
 
 const today = todayDateInput();
 
-// AVATAR
-
 function clearAvatarPreview() {
   if (avatarPreview.value) {
     URL.revokeObjectURL(avatarPreview.value);
@@ -304,8 +302,6 @@ function removeAvatar() {
   }
 }
 
-// REGISTER
-
 async function submitRegister() {
   if (submitting.value) {
     return;
@@ -338,8 +334,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* PAGE */
-
 .register-page {
   width: min(1040px, calc(100% - 32px));
 
@@ -356,8 +350,6 @@ onUnmounted(() => {
   gap: 55px;
 }
 
-/* INTRO */
-
 .register-intro {
   position: sticky;
 
@@ -373,8 +365,6 @@ onUnmounted(() => {
 
   line-height: 1.05;
 }
-
-/* CARD */
 
 .register-card {
   padding: 27px;
@@ -397,8 +387,6 @@ onUnmounted(() => {
 
   font-size: 1.45rem;
 }
-
-/* FORM */
 
 .register-form {
   display: grid;
@@ -428,8 +416,6 @@ onUnmounted(() => {
   font-size: 10px;
   font-weight: 500;
 }
-
-/* PASSWORD */
 
 .password-field {
   position: relative;
@@ -463,8 +449,6 @@ onUnmounted(() => {
 .password-toggle:hover {
   background: var(--primary-soft);
 }
-
-/* AVATAR */
 
 .avatar-picker {
   display: flex;
@@ -553,8 +537,6 @@ onUnmounted(() => {
   color: var(--danger-hover);
 }
 
-/* FEEDBACK */
-
 .register-error {
   margin: 0;
 
@@ -577,8 +559,6 @@ onUnmounted(() => {
   margin-top: 3px;
 }
 
-/* FOOTER */
-
 .register-footer {
   display: flex;
   justify-content: center;
@@ -594,8 +574,6 @@ onUnmounted(() => {
 
   font-size: 12px;
 }
-
-/* MOBILE */
 
 @media (max-width: 800px) {
   .register-layout {

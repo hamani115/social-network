@@ -111,17 +111,8 @@ let sessionChecked = false;
 
 router.beforeEach(async (to) => {
   const auth = useAuthStore();
-
   
-  // DOES THIS ROUTE NEED
-  // SESSION INFORMATION?
-  
-
   const needsSession = Boolean(to.meta.requiresAuth || to.meta.guestOnly);
-
-  
-  // INITIAL SESSION CHECK
-  
 
   if (needsSession && !sessionChecked) {
     try {
@@ -129,9 +120,6 @@ router.beforeEach(async (to) => {
 
       sessionChecked = true;
     } catch (err) {
-      // ---------------------
-      // BACKEND UNAVAILABLE
-      // ---------------------
 
       if (isServerUnavailableError(err)) {
         return {
@@ -142,10 +130,6 @@ router.beforeEach(async (to) => {
           },
         };
       }
-
-      // ---------------------
-      // SERVER ERROR
-      // ---------------------
 
       if (err?.status >= 500) {
         return {
@@ -163,9 +147,6 @@ router.beforeEach(async (to) => {
     }
   }
 
-  
-  // PROTECTED ROUTE
-  
 
   if (to.meta.requiresAuth && !auth.user) {
     return {
@@ -177,9 +158,7 @@ router.beforeEach(async (to) => {
     };
   }
 
-  
-  // GUEST-ONLY ROUTE
-  
+
 
   if (to.meta.guestOnly && auth.user) {
     return "/";

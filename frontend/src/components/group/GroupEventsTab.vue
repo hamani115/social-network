@@ -1,7 +1,6 @@
 <template>
   <section v-show="active" class="group-tab-panel group-events-panel">
-    <!-- Header -->
-
+    
     <div class="group-panel-heading">
       <div>
         <h2>Events</h2>
@@ -13,8 +12,7 @@
       </button>
     </div>
 
-    <!-- Upcoming + Past -->
-
+    <!-- Upcoming + Past Events-->
     <div class="event-scope-tabs">
       <button
         type="button"
@@ -35,20 +33,14 @@
       </button>
     </div>
 
-    <!-- Initial loading -->
-
     <div v-if="loadingGroupEvents" class="group-section-state">
       <span class="loading-spinner"></span>
       Loading events...
     </div>
 
-    <!-- Error -->
-
     <p v-else-if="groupEventsError" class="group-page-error">
       {{ groupEventsError }}
     </p>
-
-    <!-- Empty -->
 
     <div v-else-if="groupEvents.length === 0" class="group-events-empty">
       <div class="group-events-empty-icon">
@@ -63,7 +55,6 @@
     </div>
 
     <!-- Events -->
-
     <div v-else class="group-events-list">
       <article
         v-for="event in groupEvents"
@@ -71,15 +62,12 @@
         class="group-event-card"
       >
         <div class="group-event-main">
-          <!-- Date -->
 
           <div class="group-event-date-block">
             <span class="group-event-date-icon">
               <i class="fa-solid fa-calendar-days" aria-hidden="true"></i>
             </span>
           </div>
-
-          <!-- Content -->
 
           <div class="group-event-content">
             <div class="group-event-title-row">
@@ -117,8 +105,6 @@
               <span>{{ formatEventClock(event.event_time) }}</span>
             </div>
 
-            <!-- Counts -->
-
             <div class="group-event-response-summary">
               <span>
                 <strong>{{ event.going_count }}</strong>
@@ -130,8 +116,6 @@
                 not going
               </span>
             </div>
-
-            <!-- Response -->
 
             <div class="group-event-response-area">
               <span class="group-event-response-label">
@@ -181,7 +165,6 @@
       </article>
 
       <!-- Pagination -->
-
       <div class="group-events-pagination">
         <div v-if="loadingMoreGroupEvents" class="group-events-loading-more">
           <span class="loading-spinner"></span>
@@ -220,8 +203,6 @@
       </div>
     </div>
   </section>
-
-  <!-- Create event modal -->
 
   <Teleport to="body">
     <div
@@ -339,8 +320,6 @@ const props = defineProps({
   },
 });
 
-// Events
-
 const groupEvents = ref([]);
 
 const loadingGroupEvents = ref(false);
@@ -362,8 +341,6 @@ let groupEventsRequestVersion = 0;
 
 const eventsLoaded = ref(false);
 
-// Create event
-
 const newGroupEvent = ref({
   title: "",
   description: "",
@@ -373,11 +350,7 @@ const newGroupEvent = ref({
 const eventModalOpen = ref(false);
 const creatingGroupEvent = ref(false);
 
-// Event response
-
 const changingEventResponseId = ref(null);
-
-// Event loading
 
 async function loadGroupEvents(reset = false) {
   if (
@@ -473,8 +446,6 @@ async function changeEventScope(scope) {
   await loadGroupEvents(true);
 }
 
-// Infinite scroll
-
 function observeGroupEventsTrigger(element) {
   if (groupEventsObserver) {
     groupEventsObserver.disconnect();
@@ -567,8 +538,6 @@ async function createGroupEvent() {
   }
 }
 
-// Event response
-
 async function respondToEvent(eventId, response) {
   try {
     changingEventResponseId.value = eventId;
@@ -614,8 +583,6 @@ async function respondToEvent(eventId, response) {
   }
 }
 
-// Reset
-
 function resetEvents() {
   groupEventsRequestVersion += 1;
 
@@ -639,8 +606,6 @@ function resetEvents() {
 
   resetEventForm();
 }
-
-// Watchers
 
 watch(
   () => props.active,
@@ -677,8 +642,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Panel */
-
 .group-tab-panel {
   padding: 22px;
 
@@ -727,8 +690,6 @@ onUnmounted(() => {
   font-size: 13px;
 }
 
-/* Event scope */
-
 .event-scope-tabs {
   width: fit-content;
 
@@ -772,8 +733,6 @@ onUnmounted(() => {
 
   color: var(--primary);
 }
-
-/* Events */
 
 .group-events-list {
   display: grid;
@@ -916,8 +875,6 @@ onUnmounted(() => {
   font-size: 12px;
 }
 
-/* Event response */
-
 .group-event-response-summary {
   display: flex;
 
@@ -982,8 +939,6 @@ onUnmounted(() => {
   color: var(--danger);
 }
 
-/* Empty events */
-
 .group-events-empty {
   padding: 42px 20px;
 
@@ -1009,8 +964,6 @@ onUnmounted(() => {
 .group-events-empty h3 {
   margin-bottom: 5px;
 }
-
-/* Event pagination */
 
 .group-events-pagination {
   padding: 16px 0 2px;
@@ -1046,8 +999,6 @@ onUnmounted(() => {
 
   font-size: 12px;
 }
-
-/* Create event modal */
 
 .event-modal-overlay {
   position: fixed;
@@ -1138,8 +1089,6 @@ onUnmounted(() => {
 
   border-top: 1px solid var(--border-soft);
 }
-
-/* Mobile */
 
 @media (max-width: 700px) {
   .group-tab-panel {

@@ -1,7 +1,6 @@
 <template>
   <main class="auth-page">
     <div class="auth-layout">
-      <!-- INTRO -->
       <section class="auth-intro">
         <h1>Welcome back!</h1>
       </section>
@@ -12,13 +11,12 @@
           <h2>Log in</h2>
         </header>
 
-        <!-- REGISTER SUCCESS -->
+        <!-- SUCCESS -->
         <div v-if="registeredSuccessfully" class="auth-success">
           Account created successfully. You can now log in.
         </div>
 
         <form class="auth-form" @submit.prevent="submitLogin">
-          <!-- EMAIL -->
           <div class="auth-field">
             <label for="login-email"> Email </label>
 
@@ -33,7 +31,6 @@
             />
           </div>
 
-          <!-- PASSWORD -->
           <div class="auth-field">
             <label for="login-password"> Password </label>
 
@@ -60,13 +57,11 @@
             </div>
           </div>
 
-          <!-- ERROR -->
+          
 
           <p v-if="error" class="auth-error" role="alert">
             {{ error }}
           </p>
-
-          <!-- SUBMIT -->
 
           <button
             type="submit"
@@ -91,32 +86,19 @@
 
 <script setup>
 import { computed, ref } from "vue";
-
 import { useRoute, useRouter } from "vue-router";
-
 import { useAuthStore } from "../stores/auth";
 
 const route = useRoute();
-
 const router = useRouter();
-
 const auth = useAuthStore();
-
 const email = ref("");
-
 const password = ref("");
-
 const error = ref("");
-
 const submitting = ref(false);
-
 const showPassword = ref(false);
 
 const registeredSuccessfully = computed(() => route.query.registered === "1");
-
-
-// LOGIN
-
 
 async function submitLogin() {
   if (submitting.value) {
@@ -140,8 +122,6 @@ async function submitLogin() {
 </script>
 
 <style scoped>
-/* PAGE */
-
 .auth-page {
   width: min(940px, calc(100% - 32px));
 
@@ -165,8 +145,6 @@ async function submitLogin() {
   gap: 70px;
 }
 
-/* INTRO */
-
 .auth-intro {
   max-width: 470px;
 }
@@ -178,9 +156,6 @@ async function submitLogin() {
 
   line-height: 1.04;
 }
-
-
-/* CARD */
 
 .auth-card {
   padding: 26px;
@@ -203,8 +178,6 @@ async function submitLogin() {
 
   font-size: 1.45rem;
 }
-
-/* FORM */
 
 .auth-form {
   display: grid;
@@ -257,8 +230,6 @@ async function submitLogin() {
   margin-top: 3px;
 }
 
-/* FEEDBACK */
-
 .auth-error,
 .auth-success {
   padding: 10px 12px;
@@ -288,8 +259,6 @@ async function submitLogin() {
   color: var(--success);
 }
 
-/* FOOTER */
-
 .auth-card-footer {
   display: flex;
   justify-content: center;
@@ -305,8 +274,6 @@ async function submitLogin() {
 
   font-size: 12px;
 }
-
-/* MOBILE */
 
 @media (max-width: 760px) {
   .auth-page {

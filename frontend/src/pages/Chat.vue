@@ -1,7 +1,5 @@
 <template>
   <main class="chat-page">
-    <!-- PAGE HEADER -->
-
     <header class="chat-page-header">
       <h1>Private Chat</h1>
     </header>
@@ -10,11 +8,9 @@
       {{ websocket.error }}
     </p>
 
-    <!-- CHAT LAYOUT -->
 
     <div class="chat-layout">
       <!-- USERS -->
-
       <aside class="chat-users-panel">
         <header class="chat-users-header">
           <div>
@@ -28,7 +24,6 @@
         </header>
 
         <!-- SEARCH -->
-
         <div class="chat-user-search">
           <span aria-hidden="true">
             <i class="fa-solid fa-magnifying-glass"></i>
@@ -42,7 +37,7 @@
           />
         </div>
 
-        <!-- LOADING -->
+        <!-- Loading -->
 
         <div v-if="loadingUsers" class="chat-users-state">
           <span class="loading-spinner"></span>
@@ -50,14 +45,11 @@
           Loading chats...
         </div>
 
-        <!-- ERROR -->
-
         <p v-else-if="usersError" class="chat-error">
           {{ usersError }}
         </p>
 
         <!-- NO USERS -->
-
         <div v-else-if="chatUsers.length === 0" class="chat-users-empty">
           <strong> No chats available </strong>
 
@@ -66,8 +58,7 @@
           </p>
         </div>
 
-        <!-- NO SEARCH RESULTS -->
-
+        <!-- NO RESULTS -->
         <div
           v-else-if="filteredChatUsers.length === 0"
           class="chat-users-empty"
@@ -125,9 +116,7 @@
       </aside>
 
       <!-- CONVERSATION -->
-
       <section class="conversation-panel">
-        <!-- NO CONVERSATION -->
 
         <div v-if="!selectedUser" class="conversation-placeholder">
           <div class="conversation-placeholder-icon">
@@ -138,8 +127,6 @@
         </div>
 
         <template v-else>
-          <!-- CONVERSATION HEADER -->
-
           <header class="conversation-header">
             <router-link
               :to="`/profiles/${selectedUser.id}`"
@@ -191,8 +178,6 @@
             </router-link>
           </header>
 
-          <!-- ERRORS -->
-
           <p v-if="messagesError" class="chat-error">
             {{ messagesError }}
           </p>
@@ -205,7 +190,7 @@
               class="messages"
               @scroll.passive="handleMessagesScroll"
             >
-              <!-- INITIAL LOAD -->
+              <!-- LOADING -->
 
               <div
                 v-if="loadingMessages && messages.length === 0"
@@ -216,7 +201,7 @@
                 Loading messages...
               </div>
 
-              <!-- OLDER LOAD -->
+              <!-- LOADING ORDER -->
 
               <div v-if="loadingOlderMessages" class="messages-loading-older">
                 <span class="loading-spinner"></span>
@@ -224,16 +209,12 @@
                 Loading older messages...
               </div>
 
-              <!-- BEGINNING -->
-
               <p
                 v-else-if="!hasMoreMessages && messages.length > 0"
                 class="conversation-beginning"
               >
                 Beginning of conversation
               </p>
-
-              <!-- EMPTY -->
 
               <div
                 v-if="!loadingMessages && messages.length === 0"
@@ -278,8 +259,6 @@
               </div>
             </div>
 
-            <!-- NEW MESSAGES -->
-
             <button
               v-if="newPrivateMessageCount > 0"
               type="button"
@@ -295,7 +274,7 @@
             </button>
           </div>
 
-          <!-- INPUT -->
+          <!-- SEND -->
 
           <form class="message-form" @submit.prevent="sendMessage">
             <input
@@ -458,8 +437,6 @@ async function loadMessages(userId, reset = false) {
     return;
   }
 
-  // RESET
-
   if (reset) {
     messagesRequestVersion += 1;
 
@@ -515,7 +492,6 @@ async function loadMessages(userId, reset = false) {
     const incomingMessages = result.messages || [];
 
     // MERGE
-
     if (reset) {
       messages.value = incomingMessages;
     } else {
@@ -533,7 +509,6 @@ async function loadMessages(userId, reset = false) {
     messagesBeforeID.value = result.next_before_id || 0;
 
     // SCROLL
-
     await nextTick();
 
     if (reset) {
@@ -841,8 +816,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* PAGE */
-
 .chat-page {
   width: min(1120px, 100%);
 }
@@ -854,8 +827,6 @@ onUnmounted(() => {
 .chat-page-header h1 {
   margin-bottom: 5px;
 }
-
-/* LAYOUT */
 
 .chat-layout {
   min-height: 650px;
@@ -874,8 +845,6 @@ onUnmounted(() => {
 
   box-shadow: var(--shadow-sm);
 }
-
-/* USER SIDEBAR */
 
 .chat-users-panel {
   min-width: 0;
@@ -909,8 +878,6 @@ onUnmounted(() => {
   font-size: 10px;
 }
 
-/* SEARCH */
-
 .chat-user-search {
   position: relative;
 
@@ -940,7 +907,6 @@ onUnmounted(() => {
   background: var(--surface);
 }
 
-/* USER LIST */
 .chat-user-avatar-wrap,
 .conversation-avatar-wrap {
   position: relative;
@@ -1078,8 +1044,6 @@ onUnmounted(() => {
   font-weight: 750;
 }
 
-/* SIDEBAR STATES */
-
 .chat-users-state,
 .chat-users-empty {
   padding: 22px 8px;
@@ -1109,8 +1073,6 @@ onUnmounted(() => {
   margin: 0;
 }
 
-/* CONVERSATION */
-
 .conversation-panel {
   min-width: 0;
 
@@ -1134,8 +1096,6 @@ onUnmounted(() => {
 .conversation-presence.online {
   color: var(--success);
 }
-
-/* PLACEHOLDER */
 
 .conversation-placeholder {
   min-height: 650px;
@@ -1180,8 +1140,6 @@ onUnmounted(() => {
   font-weight: 650;
 }
 
-/* HEADER */
-
 .conversation-header {
   min-height: 72px;
 
@@ -1219,8 +1177,6 @@ onUnmounted(() => {
   font-size: 10px;
 }
 
-/* MESSAGES */
-
 .messages-shell {
   position: relative;
 
@@ -1240,8 +1196,6 @@ onUnmounted(() => {
 
   scroll-behavior: auto;
 }
-
-/* LOAD STATES */
 
 .messages-loading,
 .messages-loading-older {
@@ -1267,8 +1221,6 @@ onUnmounted(() => {
 
   text-align: center;
 }
-
-/* EMPTY */
 
 .conversation-empty {
   min-height: 430px;
@@ -1304,8 +1256,6 @@ onUnmounted(() => {
 
   color: var(--text);
 }
-
-/* MESSAGE */
 
 .message-row {
   display: flex;
@@ -1363,8 +1313,6 @@ onUnmounted(() => {
   font-size: 9px;
 }
 
-/* NEW MESSAGE */
-
 .private-new-message-button {
   position: absolute;
 
@@ -1393,8 +1341,6 @@ onUnmounted(() => {
   box-shadow: var(--shadow-md);
 }
 
-/* MESSAGE INPUT */
-
 .message-form {
   display: flex;
 
@@ -1409,8 +1355,6 @@ onUnmounted(() => {
   min-width: 0;
   flex: 1;
 }
-
-/* ERROR */
 
 .chat-error {
   margin: 10px 0;
@@ -1427,8 +1371,6 @@ onUnmounted(() => {
 
   font-size: 11px;
 }
-
-/* MOBILE */
 
 @media (max-width: 760px) {
   .chat-page-header {

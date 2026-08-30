@@ -1,6 +1,6 @@
 <template>
   <section v-show="active" class="group-tab-panel group-posts-panel">
-    <!-- Header -->
+    
 
     <div class="group-panel-heading">
       <div>
@@ -40,13 +40,13 @@
       Loading group posts...
     </div>
 
-    <!-- Error -->
+    
 
     <p v-else-if="groupPostsError" class="group-page-error">
       {{ groupPostsError }}
     </p>
 
-    <!-- Empty -->
+    
 
     <div v-else-if="groupPosts.length === 0" class="group-empty-posts">
       <h3>No posts yet</h3>
@@ -60,8 +60,6 @@
         :key="post.id"
         class="group-post-card"
       >
-        <!-- Author -->
-
         <header class="group-post-author">
           <UserAvatar
             :avatar-path="post.author_avatar_path"
@@ -198,7 +196,6 @@
             </article>
           </div>
 
-          <!-- Comment form -->
 
           <form
             class="group-comment-form"
@@ -284,8 +281,6 @@
       </div>
     </div>
   </section>
-
-  <!-- Create post modal -->
 
   <Teleport to="body">
     <div
@@ -402,8 +397,6 @@ const props = defineProps({
   },
 });
 
-// Posts
-
 const groupPosts = ref([]);
 
 const loadingGroupPosts = ref(false);
@@ -425,8 +418,6 @@ let groupPostsObserver = null;
 
 const postsLoaded = ref(false);
 
-// Create post
-
 const newGroupPostContent = ref("");
 const newGroupPostImage = ref(null);
 const groupPostImageInput = ref(null);
@@ -435,7 +426,6 @@ const groupPostModalOpen = ref(false);
 const creatingGroupPost = ref(false);
 
 // Comments
-
 const GROUP_COMMENTS_PAGE_SIZE = 5;
 
 const groupCommentsByPost = ref({});
@@ -647,7 +637,6 @@ async function createGroupComment(postId) {
   }
 }
 
-// Images
 
 function handleGroupPostImageChange(event) {
   const file = event.target.files[0];
@@ -660,8 +649,6 @@ function handleGroupCommentImageChange(postId, event) {
 
   newGroupCommentImages.value[postId] = file || null;
 }
-
-// Create post modal
 
 function openGroupPostModal() {
   groupPostsError.value = "";
@@ -757,8 +744,6 @@ function observeGroupPostsTrigger(element) {
   groupPostsObserver.observe(element);
 }
 
-// Reset when another group is opened
-
 function resetPosts() {
   postsLoaded.value = false;
 
@@ -792,8 +777,6 @@ function resetPosts() {
 
   closeGroupPostModal();
 }
-
-// Lazy load when Posts is opened
 
 watch(
   () => props.active,

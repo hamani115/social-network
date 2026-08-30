@@ -674,7 +674,6 @@ func listUsersHandler(w http.ResponseWriter, r *http.Request) {
 		r.Context().Value(userIDKey).(int)
 
 	// PAGINATION
-
 	limit := 20
 
 	if rawLimit :=
@@ -720,8 +719,6 @@ func listUsersHandler(w http.ResponseWriter, r *http.Request) {
 		offset = parsedOffset
 	}
 
-	// SEARCH
-
 	searchQuery :=
 		strings.ToLower(
 			strings.TrimSpace(
@@ -732,8 +729,7 @@ func listUsersHandler(w http.ResponseWriter, r *http.Request) {
 	searchPattern :=
 		"%" + searchQuery + "%"
 
-	// Ask for one extra user so we
-	// know whether another page exists.
+
 	rows, err := db.Query(`
 		SELECT
 			users.id,

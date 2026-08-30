@@ -26,8 +26,6 @@ export const useNotificationsStore = defineStore("notifications", {
   }),
 
   actions: {
-    // LOAD
-
     async fetchNotifications(reset = true) {
       if (!reset && (this.loading || this.loadingMore || !this.hasMore)) {
         return;
@@ -118,8 +116,6 @@ export const useNotificationsStore = defineStore("notifications", {
       }
     },
 
-    // FILTER
-
     async setFilter(filter) {
       if (filter !== "all" && filter !== "unread") {
         return;
@@ -133,8 +129,6 @@ export const useNotificationsStore = defineStore("notifications", {
 
       await this.fetchNotifications(true);
     },
-
-    // MARK ONE READ
 
     async markAsRead(notificationId) {
       const notification = this.notifications.find(
@@ -169,8 +163,6 @@ export const useNotificationsStore = defineStore("notifications", {
         throw err;
       }
     },
-
-    // MARK ALL READ
 
     async markAllAsRead() {
       if (this.unreadCount === 0) {
@@ -207,9 +199,6 @@ export const useNotificationsStore = defineStore("notifications", {
         throw err;
       }
     },
-
-    // LIVE WS NOTIFICATION
-
     addNotification(notification) {
       if (!notification) {
         return;
@@ -237,7 +226,6 @@ export const useNotificationsStore = defineStore("notifications", {
     },
 
     // LOGOUT
-
     clear() {
       this.requestVersion += 1;
 

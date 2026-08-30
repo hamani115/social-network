@@ -1,6 +1,6 @@
 <template>
   <section v-show="active" class="group-tab-panel group-members-panel">
-    <!-- Header -->
+    
 
     <div class="group-panel-heading">
       <h2>Members</h2>
@@ -11,8 +11,7 @@
       </span>
     </div>
 
-    <!-- Member search -->
-
+    <!-- Search -->
     <div class="group-member-search">
       <span class="group-member-search-icon" aria-hidden="true">
         <i class="fa-solid fa-magnifying-glass"></i>
@@ -44,14 +43,11 @@
       Loading members...
     </div>
 
-    <!-- Error -->
-
     <p v-else-if="groupMembersError" class="group-page-error">
       {{ groupMembersError }}
     </p>
 
-    <!-- No search results -->
-
+    <!-- No results -->
     <div
       v-else-if="groupMembers.length === 0 && debouncedMemberSearchQuery"
       class="group-members-empty"
@@ -62,7 +58,6 @@
     </div>
 
     <!-- Members -->
-
     <div v-else class="group-member-list">
       <article
         v-for="member in groupMembers"
@@ -98,8 +93,7 @@
         </span>
       </article>
 
-      <!-- Member pagination -->
-
+      <!-- Pagination -->
       <div class="group-member-pagination">
         <div v-if="loadingMoreGroupMembers" class="group-member-loading-more">
           <span class="loading-spinner"></span>
@@ -136,7 +130,6 @@
     </div>
 
     <!-- Invite -->
-
     <section class="group-invite-section">
       <div class="group-invite-heading">
         <h3>Invite someone</h3>
@@ -167,8 +160,6 @@
         {{ inviteCandidatesError }}
       </p>
 
-      <!-- Searching -->
-
       <div v-else-if="loadingInviteCandidates" class="group-section-state">
         <span class="loading-spinner"></span>
 
@@ -184,8 +175,7 @@
         No available users found.
       </p>
 
-      <!-- Candidates -->
-
+      <!-- LIST -->
       <div v-else class="group-invite-candidate-list">
         <article
           v-for="user in inviteCandidates"
@@ -264,8 +254,6 @@ const props = defineProps({
 
 const emit = defineEmits(["invitation-sent"]);
 
-// Members
-
 const groupMembers = ref([]);
 
 const loadingGroupMembers = ref(false);
@@ -286,14 +274,12 @@ let groupMembersRequestVersion = 0;
 
 const membersLoaded = ref(false);
 
-// Member search
+// search
 
 const memberSearchQuery = ref("");
 const debouncedMemberSearchQuery = ref("");
 
 let memberSearchTimer = null;
-
-// Invite search
 
 const inviteCandidates = ref([]);
 
@@ -317,8 +303,6 @@ const inviteMessage = ref("");
 
 let inviteSearchTimer = null;
 let inviteRequestVersion = 0;
-
-// Members
 
 async function loadGroupMembers(reset = false) {
   if (
@@ -412,8 +396,6 @@ async function loadGroupMembers(reset = false) {
   }
 }
 
-// Member search
-
 async function clearMemberSearch() {
   if (memberSearchTimer) {
     clearTimeout(memberSearchTimer);
@@ -428,7 +410,7 @@ async function clearMemberSearch() {
   await loadGroupMembers(true);
 }
 
-// Member infinite scroll
+// infinite scroll
 
 function observeGroupMembersTrigger(element) {
   if (groupMembersObserver) {
@@ -464,8 +446,6 @@ function observeGroupMembersTrigger(element) {
 
   groupMembersObserver.observe(element);
 }
-
-// Invite candidates
 
 async function loadInviteCandidates(reset = false) {
   const query = debouncedInviteSearchQuery.value.trim();
@@ -561,8 +541,6 @@ async function loadInviteCandidates(reset = false) {
   }
 }
 
-// Send invitation
-
 async function sendInvitation(user) {
   try {
     invitingUserID.value = user.id;
@@ -644,8 +622,6 @@ function resetMembers() {
   inviteMessage.value = "";
 }
 
-// Watchers
-
 watch(
   () => props.active,
   async (active) => {
@@ -672,9 +648,6 @@ watch(
     }
   },
 );
-
-// If Management accepts a join request,
-// the parent increases memberCount.
 
 watch(
   () => props.memberCount,
@@ -745,8 +718,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Panel */
-
 .group-tab-panel {
   padding: 22px;
 
@@ -799,8 +770,6 @@ onUnmounted(() => {
   color: var(--success);
 }
 
-/* Member count */
-
 .group-members-count {
   flex-shrink: 0;
 
@@ -815,8 +784,6 @@ onUnmounted(() => {
   font-size: 11px;
   font-weight: 700;
 }
-
-/* Search */
 
 .group-member-search,
 .group-invite-search {
@@ -870,8 +837,6 @@ onUnmounted(() => {
 
   transform: translateY(-50%);
 }
-
-/* Members */
 
 .group-member-list {
   display: grid;
@@ -958,8 +923,6 @@ onUnmounted(() => {
   color: var(--primary);
 }
 
-/* Member pagination */
-
 .group-member-pagination {
   padding: 14px 0 2px;
 
@@ -993,8 +956,6 @@ onUnmounted(() => {
   font-size: 11px;
 }
 
-/* Invitations */
-
 .group-invite-section {
   margin-top: 26px;
   padding-top: 22px;
@@ -1017,8 +978,6 @@ onUnmounted(() => {
 
   margin-top: 8px;
 }
-
-/* Mobile */
 
 @media (max-width: 700px) {
   .group-tab-panel {

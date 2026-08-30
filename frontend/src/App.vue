@@ -2,7 +2,7 @@
   <div class="app-shell">
     <header class="topbar">
       <div class="topbar-inner">
-        <!-- Left Side -->
+        <!-- Left -->
         <router-link to="/" class="brand">
           <img src="/social_network_logo.png" alt="" class="brand-logo" />
 
@@ -53,7 +53,7 @@
           </router-link>
         </nav>
 
-        <!-- Right side -->
+        <!-- Right -->
         <div class="topbar-actions">
           <template v-if="auth.user">
             <span
