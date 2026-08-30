@@ -416,45 +416,33 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { apiRequest } from "../services/api";
 import { useWebSocketStore } from "../stores/websocket";
-
 import { formatDate } from "../utils/date";
-
 import GroupPostsTab from "../components/group/GroupPostsTab.vue";
 import GroupEventsTab from "../components/group/GroupEventsTab.vue";
 import GroupMembersTab from "../components/group/GroupMembersTab.vue";
 import GroupChatTab from "../components/group/GroupChatTab.vue";
 import UserAvatar from "../components/UserAvatar.vue";
-
 const route = useRoute();
 // const auth = useAuthStore();
 const websocket = useWebSocketStore();
-
 const group = ref(null);
 const joinRequests = ref([]);
 const groupInvitations = ref([]);
-
 const loadingGroup = ref(false);
 const loadingJoinRequests = ref(false);
 const loadingInvitations = ref(false);
-
 const leavingGroup = ref(false);
-
 const groupError = ref("");
 const joinRequestsError = ref("");
 const invitationsError = ref("");
-
 const activeGroupTab = ref("overview");
-
 const loadedGroupTabs = ref({
   management: false,
 });
-
 const groupId = computed(() => route.params.id);
-
 const isOwner = computed(() => {
   return group.value?.membership_status === "owner";
 });
-
 const isMemberOrOwner = computed(() => {
   return (
     group.value?.membership_status === "owner" ||
@@ -472,9 +460,7 @@ async function loadGroup() {
   try {
     loadingGroup.value = true;
     groupError.value = "";
-
     group.value = await apiRequest(`/groups/${groupId.value}`);
-
     if (isOwner.value) {
       await loadJoinRequests();
     }
@@ -489,21 +475,16 @@ async function selectGroupTab(tab) {
   if (tab !== "overview" && !isMemberOrOwner.value) {
     return;
   }
-
   if (tab === "management" && !isOwner.value) {
     return;
   }
-
   activeGroupTab.value = tab;
-
   switch (tab) {
     case "management":
       if (!loadedGroupTabs.value.management) {
         await Promise.all([loadJoinRequests(), loadGroupInvitations()]);
-
         loadedGroupTabs.value.management = true;
       }
-
       break;
   }
 }
@@ -511,11 +492,9 @@ async function selectGroupTab(tab) {
 async function requestJoinGroup() {
   try {
     groupError.value = "";
-
     const result = await apiRequest(`/groups/${groupId.value}/join-request`, {
       method: "POST",
     });
-
     group.value.membership_status = result.status || "pending";
   } catch (err) {
     groupError.value = err.message;
@@ -525,11 +504,9 @@ async function requestJoinGroup() {
 async function cancelJoinRequest() {
   try {
     groupError.value = "";
-
     await apiRequest(`/groups/${groupId.value}/cancel-join-request`, {
       method: "POST",
     });
-
     group.value.membership_status = "none";
   } catch (err) {
     groupError.value = err.message;
@@ -540,31 +517,23 @@ async function leaveGroup() {
   if (leavingGroup.value || group.value?.membership_status !== "member") {
     return;
   }
-
   const confirmed = window.confirm(
     `Leave "${group.value.title}"?\n\n` +
       "You will lose access to the group's posts, events, members and chat",
   );
-
   if (!confirmed) {
     return;
   }
-
   try {
     leavingGroup.value = true;
-
     groupError.value = "";
-
     await apiRequest(`/groups/${groupId.value}/leave`, {
       method: "POST",
     });
-
     activeGroupTab.value = "overview";
-
     loadedGroupTabs.value = {
       management: false,
     };
-
     await loadGroup();
   } catch (err) {
     groupError.value = err.message;
@@ -577,7 +546,6 @@ async function loadJoinRequests() {
   try {
     loadingJoinRequests.value = true;
     joinRequestsError.value = "";
-
     joinRequests.value = await apiRequest(
       `/groups/${groupId.value}/join-requests`,
     );
@@ -591,18 +559,15 @@ async function loadJoinRequests() {
 async function acceptJoinRequest(requestId) {
   try {
     joinRequestsError.value = "";
-
     await apiRequest(
       `/groups/${groupId.value}` + `/join-requests/${requestId}/accept`,
       {
         method: "POST",
       },
     );
-
     joinRequests.value = joinRequests.value.filter(
       (request) => request.id !== requestId,
     );
-
     if (group.value) {
       group.value.member_count += 1;
     }
@@ -614,14 +579,12 @@ async function acceptJoinRequest(requestId) {
 async function declineJoinRequest(requestId) {
   try {
     joinRequestsError.value = "";
-
     await apiRequest(
       `/groups/${groupId.value}` + `/join-requests/${requestId}/decline`,
       {
         method: "POST",
       },
     );
-
     joinRequests.value = joinRequests.value.filter(
       (request) => request.id !== requestId,
     );
@@ -634,7 +597,6 @@ async function loadGroupInvitations() {
   try {
     loadingInvitations.value = true;
     invitationsError.value = "";
-
     groupInvitations.value = await apiRequest(
       `/groups/${groupId.value}/invitations`,
     );
@@ -649,19 +611,15 @@ watch(
   () => route.fullPath,
   () => {
     activeGroupTab.value = "overview";
-
     loadedGroupTabs.value = {
       management: false,
     };
-
     group.value = null;
     joinRequests.value = [];
     groupInvitations.value = [];
-
     loadGroup();
   },
 );
-
 onMounted(() => {
   loadGroup();
 });

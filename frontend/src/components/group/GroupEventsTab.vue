@@ -1,6 +1,5 @@
 <template>
   <section v-show="active" class="group-tab-panel group-events-panel">
-    
     <div class="group-panel-heading">
       <div>
         <h2>Events</h2>
@@ -62,7 +61,6 @@
         class="group-event-card"
       >
         <div class="group-event-main">
-
           <div class="group-event-date-block">
             <span class="group-event-date-icon">
               <i class="fa-solid fa-calendar-days" aria-hidden="true"></i>
@@ -299,7 +297,6 @@
 
 <script setup>
 import UserAvatar from "../UserAvatar.vue";
-
 import { onUnmounted, ref, watch } from "vue";
 import { apiRequest } from "../../services/api";
 import {
@@ -308,7 +305,6 @@ import {
   formatEventDate,
   formatEventTimeForBackend,
 } from "../../utils/date";
-
 const props = defineProps({
   groupId: {
     type: [String, Number],
@@ -319,37 +315,26 @@ const props = defineProps({
     default: false,
   },
 });
-
 const groupEvents = ref([]);
-
 const loadingGroupEvents = ref(false);
 const groupEventsError = ref("");
-
 const GROUP_EVENTS_PAGE_SIZE = 10;
-
 const eventScope = ref("upcoming");
 const eventOffset = ref(0);
-
 const hasMoreGroupEvents = ref(true);
 const loadingMoreGroupEvents = ref(false);
 const groupEventsLoadMoreError = ref("");
-
 const groupEventsLoadTrigger = ref(null);
-
 let groupEventsObserver = null;
 let groupEventsRequestVersion = 0;
-
 const eventsLoaded = ref(false);
-
 const newGroupEvent = ref({
   title: "",
   description: "",
   event_time: "",
 });
-
 const eventModalOpen = ref(false);
 const creatingGroupEvent = ref(false);
-
 const changingEventResponseId = ref(null);
 
 async function loadGroupEvents(reset = false) {
@@ -361,19 +346,15 @@ async function loadGroupEvents(reset = false) {
   ) {
     return;
   }
-
   if (reset) {
     groupEventsRequestVersion += 1;
-
     groupEvents.value = [];
     eventOffset.value = 0;
     hasMoreGroupEvents.value = true;
     groupEventsLoadMoreError.value = "";
   }
-
   const requestVersion = groupEventsRequestVersion;
   const initialLoad = eventOffset.value === 0;
-
   try {
     if (initialLoad) {
       loadingGroupEvents.value = true;
@@ -382,43 +363,33 @@ async function loadGroupEvents(reset = false) {
       loadingMoreGroupEvents.value = true;
       groupEventsLoadMoreError.value = "";
     }
-
     const params = new URLSearchParams();
-
     params.set("scope", eventScope.value);
     params.set("limit", String(GROUP_EVENTS_PAGE_SIZE));
     params.set("offset", String(eventOffset.value));
     params.set("now", currentLocalDateTimeForBackend());
-
     const result = await apiRequest(
       `/groups/${props.groupId}/events?${params.toString()}`,
     );
-
     if (requestVersion !== groupEventsRequestVersion) {
       return;
     }
-
     const incomingEvents = result.events || [];
-
     if (reset) {
       groupEvents.value = incomingEvents;
     } else {
       const existingIDs = new Set(groupEvents.value.map((event) => event.id));
-
       groupEvents.value.push(
         ...incomingEvents.filter((event) => !existingIDs.has(event.id)),
       );
     }
-
     eventOffset.value =
       result.next_offset ?? eventOffset.value + incomingEvents.length;
-
     hasMoreGroupEvents.value = Boolean(result.has_more);
   } catch (err) {
     if (requestVersion !== groupEventsRequestVersion) {
       return;
     }
-
     if (initialLoad) {
       groupEventsError.value = err.message;
     } else {
@@ -436,13 +407,10 @@ async function changeEventScope(scope) {
   if (scope !== "upcoming" && scope !== "past") {
     return;
   }
-
   if (eventScope.value === scope) {
     return;
   }
-
   eventScope.value = scope;
-
   await loadGroupEvents(true);
 }
 
@@ -451,15 +419,12 @@ function observeGroupEventsTrigger(element) {
     groupEventsObserver.disconnect();
     groupEventsObserver = null;
   }
-
   if (!element) {
     return;
   }
-
   groupEventsObserver = new IntersectionObserver(
     (entries) => {
       const entry = entries[0];
-
       if (
         entry.isIntersecting &&
         props.active &&
@@ -476,7 +441,6 @@ function observeGroupEventsTrigger(element) {
       threshold: 0,
     },
   );
-
   groupEventsObserver.observe(element);
 }
 
@@ -499,10 +463,8 @@ function closeEventModal() {
   if (creatingGroupEvent.value) {
     return;
   }
-
   eventModalOpen.value = false;
   groupEventsError.value = "";
-
   resetEventForm();
 }
 
@@ -510,12 +472,9 @@ async function createGroupEvent() {
   try {
     creatingGroupEvent.value = true;
     groupEventsError.value = "";
-
     const eventTime = newGroupEvent.value.event_time;
     const eventDate = new Date(eventTime);
-
     const createdScope = eventDate < new Date() ? "past" : "upcoming";
-
     await apiRequest(`/groups/${props.groupId}/events`, {
       method: "POST",
       body: JSON.stringify({
@@ -524,12 +483,9 @@ async function createGroupEvent() {
         event_time: formatEventTimeForBackend(eventTime),
       }),
     });
-
     resetEventForm();
-
     eventModalOpen.value = false;
     eventScope.value = createdScope;
-
     await loadGroupEvents(true);
   } catch (err) {
     groupEventsError.value = err.message;
@@ -542,39 +498,29 @@ async function respondToEvent(eventId, response) {
   try {
     changingEventResponseId.value = eventId;
     groupEventsError.value = "";
-
     const event = groupEvents.value.find((item) => item.id === eventId);
-
     if (!event) {
       return;
     }
-
     const previousResponse = event.my_response;
-
     if (previousResponse === response) {
       return;
     }
-
     const action = response === "going" ? "going" : "not-going";
-
     await apiRequest(`/groups/${props.groupId}/events/${eventId}/${action}`, {
       method: "POST",
     });
-
     if (previousResponse === "going") {
       event.going_count = Math.max(0, event.going_count - 1);
     }
-
     if (previousResponse === "not_going") {
       event.not_going_count = Math.max(0, event.not_going_count - 1);
     }
-
     if (response === "going") {
       event.going_count += 1;
     } else {
       event.not_going_count += 1;
     }
-
     event.my_response = response;
   } catch (err) {
     groupEventsError.value = err.message;
@@ -585,25 +531,18 @@ async function respondToEvent(eventId, response) {
 
 function resetEvents() {
   groupEventsRequestVersion += 1;
-
   eventsLoaded.value = false;
-
   groupEvents.value = [];
-
   loadingGroupEvents.value = false;
   groupEventsError.value = "";
-
   eventScope.value = "upcoming";
   eventOffset.value = 0;
-
   hasMoreGroupEvents.value = true;
   loadingMoreGroupEvents.value = false;
   groupEventsLoadMoreError.value = "";
-
   eventModalOpen.value = false;
   creatingGroupEvent.value = false;
   changingEventResponseId.value = null;
-
   resetEventForm();
 }
 
@@ -617,23 +556,19 @@ watch(
   },
   { immediate: true },
 );
-
 watch(
   () => props.groupId,
   async () => {
     resetEvents();
-
     if (props.active) {
       await loadGroupEvents(true);
       eventsLoaded.value = true;
     }
   },
 );
-
 watch(groupEventsLoadTrigger, (element) => {
   observeGroupEventsTrigger(element);
 });
-
 onUnmounted(() => {
   if (groupEventsObserver) {
     groupEventsObserver.disconnect();

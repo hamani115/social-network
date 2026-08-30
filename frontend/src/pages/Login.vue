@@ -57,8 +57,6 @@
             </div>
           </div>
 
-          
-
           <p v-if="error" class="auth-error" role="alert">
             {{ error }}
           </p>
@@ -88,7 +86,6 @@
 import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
-
 const route = useRoute();
 const router = useRouter();
 const auth = useAuthStore();
@@ -97,21 +94,16 @@ const password = ref("");
 const error = ref("");
 const submitting = ref(false);
 const showPassword = ref(false);
-
 const registeredSuccessfully = computed(() => route.query.registered === "1");
 
 async function submitLogin() {
   if (submitting.value) {
     return;
   }
-
   try {
     submitting.value = true;
-
     error.value = "";
-
     await auth.login(email.value.trim(), password.value);
-
     await router.push("/");
   } catch (err) {
     error.value = err.message || "Could not log in";

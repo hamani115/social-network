@@ -8,7 +8,6 @@
       {{ websocket.error }}
     </p>
 
-
     <div class="chat-layout">
       <!-- USERS -->
       <aside class="chat-users-panel">
@@ -117,7 +116,6 @@
 
       <!-- CONVERSATION -->
       <section class="conversation-panel">
-
         <div v-if="!selectedUser" class="conversation-placeholder">
           <div class="conversation-placeholder-icon">
             <i class="fa-solid fa-comments" aria-hidden="true"></i>
@@ -306,40 +304,30 @@
 
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
-
 import { apiRequest } from "../services/api";
 import { useAuthStore } from "../stores/auth";
 import { useWebSocketStore } from "../stores/websocket";
 import { formatDateTime } from "../utils/date";
-
 import UserAvatar from "../components/UserAvatar.vue";
-
 const auth = useAuthStore();
 const websocket = useWebSocketStore();
-
 const chatUsers = ref([]);
 const selectedUser = ref(null);
 const messages = ref([]);
-
 const loadingUsers = ref(false);
 const loadingMessages = ref(false);
-
 const usersError = ref("");
 const messagesError = ref("");
 const sendError = ref("");
-
 const messageInput = ref("");
-
 const selectedUserTyping = ref(false);
 let typingStopTimer = null;
 let receivedTypingTimer = null;
 let typingSent = false;
 let lastTypingSentAt = 0;
-
 const TYPING_STOP_DELAY = 1500;
 const TYPING_REFRESH_INTERVAL = 1000;
 const RECEIVED_TYPING_TIMEOUT = 2500;
-
 const messagesContainer = ref(null);
 const PRIVATE_MESSAGES_PAGE_SIZE = 30;
 const hasMoreMessages = ref(true);
@@ -350,21 +338,17 @@ const privateChatNearBottom = ref(true);
 let messagesRequestVersion = 0;
 const CHAT_TOP_THRESHOLD = 80;
 const CHAT_BOTTOM_THRESHOLD = 100;
-
 const chatSearchQuery = ref("");
 const filteredChatUsers = computed(() => {
   const query = chatSearchQuery.value.trim().toLowerCase();
-
   if (!query) {
     return chatUsers.value;
   }
-
   return chatUsers.value.filter((user) => {
     const searchableText = [user.first_name, user.last_name, user.nickname]
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
-
     return searchableText.includes(query);
   });
 });
@@ -373,13 +357,10 @@ function displayUserName(user) {
   if (!user) {
     return "";
   }
-
   const fullName = `${user.first_name} ${user.last_name}`;
-
   if (user.nickname) {
     return `${fullName} (${user.nickname})`;
   }
-
   return fullName;
 }
 
@@ -387,7 +368,6 @@ async function loadChatUsers() {
   try {
     loadingUsers.value = true;
     usersError.value = "";
-
     chatUsers.value = await apiRequest("/chat/users");
   } catch (err) {
     usersError.value = err.message;
@@ -400,26 +380,18 @@ async function selectUser(user) {
   if (!user) {
     return;
   }
-
   const sameUser = selectedUser.value?.id === user.id;
-
   stopTyping();
   clearReceivedTyping();
-
   selectedUser.value = user;
-
   websocket.setActivePrivateChat(user.id);
-
   newPrivateMessageCount.value = 0;
   sendError.value = "";
-
   if (sameUser && messages.value.length > 0) {
     await scrollToBottom();
     return;
   }
-
   messageInput.value = "";
-
   await loadMessages(user.id, true);
 }
 
@@ -427,7 +399,6 @@ async function loadMessages(userId, reset = false) {
   if (!userId) {
     return;
   }
-
   if (
     !reset &&
     (loadingMessages.value ||
@@ -436,89 +407,61 @@ async function loadMessages(userId, reset = false) {
   ) {
     return;
   }
-
   if (reset) {
     messagesRequestVersion += 1;
-
     messages.value = [];
-
     messagesBeforeID.value = 0;
-
     hasMoreMessages.value = true;
-
     newPrivateMessageCount.value = 0;
-
     messagesError.value = "";
   }
-
   const requestVersion = messagesRequestVersion;
-
   const loadingOlder = !reset && messages.value.length > 0;
-
   const container = messagesContainer.value;
-
   const previousScrollHeight = container ? container.scrollHeight : 0;
-
   const previousScrollTop = container ? container.scrollTop : 0;
-
   try {
     if (loadingOlder) {
       loadingOlderMessages.value = true;
     } else {
       loadingMessages.value = true;
     }
-
     messagesError.value = "";
-
     const params = new URLSearchParams();
-
     params.set("limit", String(PRIVATE_MESSAGES_PAGE_SIZE));
-
     if (loadingOlder && messagesBeforeID.value) {
       params.set("before_id", String(messagesBeforeID.value));
     }
-
     const result = await apiRequest(
       `/chat/${userId}/messages` + `?${params.toString()}`,
     );
-
     if (
       requestVersion !== messagesRequestVersion ||
       selectedUser.value?.id !== userId
     ) {
       return;
     }
-
     const incomingMessages = result.messages || [];
-
     // MERGE
     if (reset) {
       messages.value = incomingMessages;
     } else {
       const existingIDs = new Set(messages.value.map((message) => message.id));
-
       const olderMessages = incomingMessages.filter(
         (message) => !existingIDs.has(message.id),
       );
-
       messages.value = [...olderMessages, ...messages.value];
     }
-
     hasMoreMessages.value = Boolean(result.has_more);
-
     messagesBeforeID.value = result.next_before_id || 0;
-
     // SCROLL
     await nextTick();
-
     if (reset) {
       await scrollToBottom();
     } else {
       const updatedContainer = messagesContainer.value;
-
       if (updatedContainer) {
         const newScrollHeight = updatedContainer.scrollHeight;
-
         updatedContainer.scrollTop =
           previousScrollTop + (newScrollHeight - previousScrollHeight);
       }
@@ -530,7 +473,6 @@ async function loadMessages(userId, reset = false) {
   } finally {
     if (requestVersion === messagesRequestVersion) {
       loadingMessages.value = false;
-
       loadingOlderMessages.value = false;
     }
   }
@@ -538,46 +480,34 @@ async function loadMessages(userId, reset = false) {
 
 async function scrollToBottom() {
   await nextTick();
-
   const container = messagesContainer.value;
-
   if (!container) {
     return;
   }
-
   container.scrollTop = container.scrollHeight;
-
   privateChatNearBottom.value = true;
-
   newPrivateMessageCount.value = 0;
 }
 
 function isPrivateChatNearBottom() {
   const container = messagesContainer.value;
-
   if (!container) {
     return true;
   }
-
   const distanceFromBottom =
     container.scrollHeight - container.scrollTop - container.clientHeight;
-
   return distanceFromBottom <= CHAT_BOTTOM_THRESHOLD;
 }
 
 function handleMessagesScroll() {
   const container = messagesContainer.value;
-
   if (!container) {
     return;
   }
-
   privateChatNearBottom.value = isPrivateChatNearBottom();
-
   if (privateChatNearBottom.value) {
     newPrivateMessageCount.value = 0;
   }
-
   if (
     container.scrollTop <= CHAT_TOP_THRESHOLD &&
     selectedUser.value &&
@@ -594,7 +524,6 @@ function clearReceivedTyping() {
     clearTimeout(receivedTypingTimer);
     receivedTypingTimer = null;
   }
-
   selectedUserTyping.value = false;
 }
 
@@ -602,26 +531,19 @@ function handleIncomingPrivateTyping(data) {
   if (!data) {
     return;
   }
-
   const senderID = Number(data.sender_id);
-
   const selectedUserID = Number(selectedUser.value?.id);
-
   if (!senderID || !selectedUserID || senderID !== selectedUserID) {
     return;
   }
-
   if (!data.typing) {
     clearReceivedTyping();
     return;
   }
-
   selectedUserTyping.value = true;
-
   if (receivedTypingTimer) {
     clearTimeout(receivedTypingTimer);
   }
-
   receivedTypingTimer = setTimeout(() => {
     selectedUserTyping.value = false;
     receivedTypingTimer = null;
@@ -632,51 +554,36 @@ function handleIncomingPrivateMessage(message) {
   if (!message) {
     return;
   }
-
   const currentUserID = auth.user?.id;
-
   const selectedUserID = selectedUser.value?.id;
-
   if (!currentUserID || !selectedUserID) {
     return;
   }
-
   const belongsToOpenConversation =
     (message.sender_id === currentUserID &&
       message.receiver_id === selectedUserID) ||
     (message.sender_id === selectedUserID &&
       message.receiver_id === currentUserID);
-
   if (!belongsToOpenConversation) {
     return;
   }
-
   const alreadyExists = messages.value.some(
     (existingMessage) => existingMessage.id === message.id,
   );
-
   if (alreadyExists) {
     return;
   }
-
   const wasNearBottom = isPrivateChatNearBottom();
-
   const isMyMessage = message.sender_id === currentUserID;
-
   if (!isMyMessage) {
     clearReceivedTyping();
   }
-
   messages.value.push(message);
-
   if (wasNearBottom || isMyMessage) {
     newPrivateMessageCount.value = 0;
-
     scrollToBottom();
-
     return;
   }
-
   newPrivateMessageCount.value += 1;
 }
 
@@ -688,19 +595,15 @@ function sendTypingStatus(typing) {
   if (!selectedUser.value || !websocket.connected) {
     return;
   }
-
   const sent = websocket.send({
     type: "private_typing",
     receiver_id: selectedUser.value.id,
     typing,
   });
-
   if (!sent) {
     return;
   }
-
   typingSent = typing;
-
   if (typing) {
     lastTypingSentAt = Date.now();
   } else {
@@ -713,11 +616,9 @@ function stopTyping() {
     clearTimeout(typingStopTimer);
     typingStopTimer = null;
   }
-
   if (typingSent) {
     sendTypingStatus(false);
   }
-
   typingSent = false;
   lastTypingSentAt = 0;
 }
@@ -726,24 +627,18 @@ function handleTypingInput() {
   if (!selectedUser.value || !websocket.connected) {
     return;
   }
-
   const hasText = Boolean(messageInput.value.trim());
-
   if (!hasText) {
     stopTyping();
     return;
   }
-
   const now = Date.now();
-
   if (!typingSent || now - lastTypingSentAt >= TYPING_REFRESH_INTERVAL) {
     sendTypingStatus(true);
   }
-
   if (typingStopTimer) {
     clearTimeout(typingStopTimer);
   }
-
   typingStopTimer = setTimeout(() => {
     sendTypingStatus(false);
     typingStopTimer = null;
@@ -752,32 +647,24 @@ function handleTypingInput() {
 
 function sendMessage() {
   sendError.value = "";
-
   if (!selectedUser.value) {
     sendError.value = "select a user first";
-
     return;
   }
-
   const content = messageInput.value.trim();
-
   if (!content) {
     return;
   }
-
   const sent = websocket.send({
     type: "private_message",
     receiver_id: selectedUser.value.id,
     content,
   });
-
   if (!sent) {
     sendError.value = websocket.error;
     return;
   }
-
   stopTyping();
-
   messageInput.value = "";
 }
 
@@ -785,17 +672,13 @@ watch(
   () => websocket.eventVersion,
   () => {
     const event = websocket.lastEvent;
-
     if (!event) {
       return;
     }
-
     if (event.type === "private_message") {
       handleIncomingPrivateMessage(event.data);
-
       return;
     }
-
     if (event.type === "private_typing") {
       handleIncomingPrivateTyping(event.data);
     }
@@ -804,13 +687,10 @@ watch(
 onMounted(async () => {
   await loadChatUsers();
 });
-
 onUnmounted(() => {
   messagesRequestVersion += 1;
-
   stopTyping();
   clearReceivedTyping();
-
   websocket.setActivePrivateChat(null);
 });
 </script>

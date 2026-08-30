@@ -1,7 +1,5 @@
 <template>
   <section v-show="active" class="group-tab-panel group-posts-panel">
-    
-
     <div class="group-panel-heading">
       <div>
         <h2>Posts</h2>
@@ -40,13 +38,9 @@
       Loading group posts...
     </div>
 
-    
-
     <p v-else-if="groupPostsError" class="group-page-error">
       {{ groupPostsError }}
     </p>
-
-    
 
     <div v-else-if="groupPosts.length === 0" class="group-empty-posts">
       <h3>No posts yet</h3>
@@ -195,7 +189,6 @@
               </div>
             </article>
           </div>
-
 
           <form
             class="group-comment-form"
@@ -379,12 +372,9 @@
 
 <script setup>
 import UserAvatar from "../UserAvatar.vue";
-
 import { onUnmounted, ref, watch } from "vue";
-
 import { apiRequest } from "../../services/api";
 import { formatDateTime } from "../../utils/date";
-
 const props = defineProps({
   groupId: {
     type: [String, Number],
@@ -396,51 +386,33 @@ const props = defineProps({
     default: false,
   },
 });
-
 const groupPosts = ref([]);
-
 const loadingGroupPosts = ref(false);
 const groupPostsError = ref("");
-
 const GROUP_POSTS_PAGE_SIZE = 10;
-
 const groupPostSort = ref("newest");
 const groupPostOffset = ref(0);
-
 const hasMoreGroupPosts = ref(true);
 const loadingMoreGroupPosts = ref(false);
-
 const groupPostsLoadMoreError = ref("");
-
 const groupPostsLoadTrigger = ref(null);
-
 let groupPostsObserver = null;
-
 const postsLoaded = ref(false);
-
 const newGroupPostContent = ref("");
 const newGroupPostImage = ref(null);
 const groupPostImageInput = ref(null);
-
 const groupPostModalOpen = ref(false);
 const creatingGroupPost = ref(false);
-
 // Comments
 const GROUP_COMMENTS_PAGE_SIZE = 5;
-
 const groupCommentsByPost = ref({});
-
 const newGroupComments = ref({});
 const newGroupCommentImages = ref({});
 const groupCommentImageInputs = ref({});
-
 const groupCommentErrors = ref({});
-
 const openGroupComments = ref({});
-
 const loadingGroupComments = ref({});
 const loadingEarlierGroupComments = ref({});
-
 const groupCommentsHasMore = ref({});
 const groupCommentsBeforeID = ref({});
 
@@ -455,61 +427,43 @@ async function loadGroupPosts(reset = false) {
   ) {
     return;
   }
-
   if (reset) {
     groupPosts.value = [];
-
     groupPostOffset.value = 0;
-
     hasMoreGroupPosts.value = true;
-
     groupPostsLoadMoreError.value = "";
-
     openGroupComments.value = {};
-
     groupCommentsByPost.value = {};
-
     groupCommentsHasMore.value = {};
-
     groupCommentsBeforeID.value = {};
-
     groupCommentErrors.value = {};
   }
-
   const initialLoad = groupPostOffset.value === 0;
-
   try {
     if (initialLoad) {
       loadingGroupPosts.value = true;
       groupPostsError.value = "";
     } else {
       loadingMoreGroupPosts.value = true;
-
       groupPostsLoadMoreError.value = "";
     }
-
     const result = await apiRequest(
       `/groups/${props.groupId}/posts` +
         `?limit=${GROUP_POSTS_PAGE_SIZE}` +
         `&offset=${groupPostOffset.value}` +
         `&sort=${groupPostSort.value}`,
     );
-
     const incomingPosts = result.posts || [];
-
     if (reset) {
       groupPosts.value = incomingPosts;
     } else {
       const existingIDs = new Set(groupPosts.value.map((post) => post.id));
-
       groupPosts.value.push(
         ...incomingPosts.filter((post) => !existingIDs.has(post.id)),
       );
     }
-
     groupPostOffset.value =
       result.next_offset ?? groupPostOffset.value + incomingPosts.length;
-
     hasMoreGroupPosts.value = Boolean(result.has_more);
   } catch (err) {
     if (initialLoad) {
@@ -519,7 +473,6 @@ async function loadGroupPosts(reset = false) {
     }
   } finally {
     loadingGroupPosts.value = false;
-
     loadingMoreGroupPosts.value = false;
   }
 }
@@ -537,22 +490,16 @@ async function loadGroupComments(postId, loadEarlier = false) {
     } else {
       loadingGroupComments.value[postId] = true;
     }
-
     groupCommentErrors.value[postId] = "";
-
     let path =
       `/groups/${props.groupId}` +
       `/posts/${postId}/comments` +
       `?limit=${GROUP_COMMENTS_PAGE_SIZE}`;
-
     if (loadEarlier && groupCommentsBeforeID.value[postId]) {
       path += `&before_id=` + groupCommentsBeforeID.value[postId];
     }
-
     const result = await apiRequest(path);
-
     const incoming = result.comments || [];
-
     if (loadEarlier) {
       groupCommentsByPost.value[postId] = [
         ...incoming,
@@ -561,15 +508,12 @@ async function loadGroupComments(postId, loadEarlier = false) {
     } else {
       groupCommentsByPost.value[postId] = incoming;
     }
-
     groupCommentsHasMore.value[postId] = Boolean(result.has_more);
-
     groupCommentsBeforeID.value[postId] = result.next_before_id || 0;
   } catch (err) {
     groupCommentErrors.value[postId] = err.message;
   } finally {
     loadingGroupComments.value[postId] = false;
-
     loadingEarlierGroupComments.value[postId] = false;
   }
 }
@@ -577,17 +521,13 @@ async function loadGroupComments(postId, loadEarlier = false) {
 async function toggleGroupComments(postId) {
   if (openGroupComments.value[postId]) {
     openGroupComments.value[postId] = false;
-
     return;
   }
-
   openGroupComments.value[postId] = true;
-
   const alreadyLoaded = Object.prototype.hasOwnProperty.call(
     groupCommentsByPost.value,
     postId,
   );
-
   if (!alreadyLoaded) {
     await loadGroupComments(postId);
   }
@@ -600,66 +540,51 @@ async function loadEarlierGroupComments(postId) {
   ) {
     return;
   }
-
   await loadGroupComments(postId, true);
 }
 
 async function createGroupComment(postId) {
   try {
     groupCommentErrors.value[postId] = "";
-
     const content = newGroupComments.value[postId] || "";
-
     const formData = new FormData();
-
     formData.append("content", content);
-
     if (newGroupCommentImages.value[postId]) {
       formData.append("image", newGroupCommentImages.value[postId]);
     }
-
     await apiRequest(`/groups/${props.groupId}` + `/posts/${postId}/comments`, {
       method: "POST",
       body: formData,
     });
-
     newGroupComments.value[postId] = "";
-
     newGroupCommentImages.value[postId] = null;
-
     if (groupCommentImageInputs.value[postId]) {
       groupCommentImageInputs.value[postId].value = "";
     }
-
     await loadGroupComments(postId);
   } catch (err) {
     groupCommentErrors.value[postId] = err.message;
   }
 }
 
-
 function handleGroupPostImageChange(event) {
   const file = event.target.files[0];
-
   newGroupPostImage.value = file || null;
 }
 
 function handleGroupCommentImageChange(postId, event) {
   const file = event.target.files[0];
-
   newGroupCommentImages.value[postId] = file || null;
 }
 
 function openGroupPostModal() {
   groupPostsError.value = "";
-
   groupPostModalOpen.value = true;
 }
 
 function resetGroupPostForm() {
   newGroupPostContent.value = "";
   newGroupPostImage.value = null;
-
   if (groupPostImageInput.value) {
     groupPostImageInput.value.value = "";
   }
@@ -669,37 +594,26 @@ function closeGroupPostModal() {
   if (creatingGroupPost.value) {
     return;
   }
-
   groupPostModalOpen.value = false;
-
   resetGroupPostForm();
 }
 
 async function createGroupPost() {
   try {
     creatingGroupPost.value = true;
-
     groupPostsError.value = "";
-
     const formData = new FormData();
-
     formData.append("content", newGroupPostContent.value);
-
     if (newGroupPostImage.value) {
       formData.append("image", newGroupPostImage.value);
     }
-
     await apiRequest(`/groups/${props.groupId}/posts`, {
       method: "POST",
       body: formData,
     });
-
     resetGroupPostForm();
-
     groupPostModalOpen.value = false;
-
     groupPostSort.value = "newest";
-
     await loadGroupPosts(true);
   } catch (err) {
     groupPostsError.value = err.message;
@@ -715,15 +629,12 @@ function observeGroupPostsTrigger(element) {
     groupPostsObserver.disconnect();
     groupPostsObserver = null;
   }
-
   if (!element) {
     return;
   }
-
   groupPostsObserver = new IntersectionObserver(
     (entries) => {
       const entry = entries[0];
-
       if (
         entry.isIntersecting &&
         props.active &&
@@ -740,41 +651,25 @@ function observeGroupPostsTrigger(element) {
       threshold: 0,
     },
   );
-
   groupPostsObserver.observe(element);
 }
 
 function resetPosts() {
   postsLoaded.value = false;
-
   groupPosts.value = [];
-
   groupPostSort.value = "newest";
-
   groupPostOffset.value = 0;
-
   hasMoreGroupPosts.value = true;
-
   loadingMoreGroupPosts.value = false;
-
   groupPostsLoadMoreError.value = "";
-
   groupPostsError.value = "";
-
   openGroupComments.value = {};
-
   groupCommentsByPost.value = {};
-
   groupCommentsHasMore.value = {};
-
   groupCommentsBeforeID.value = {};
-
   groupCommentErrors.value = {};
-
   newGroupComments.value = {};
-
   newGroupCommentImages.value = {};
-
   closeGroupPostModal();
 }
 
@@ -783,7 +678,6 @@ watch(
   async (active) => {
     if (active && !postsLoaded.value) {
       await loadGroupPosts(true);
-
       postsLoaded.value = true;
     }
   },
@@ -791,24 +685,19 @@ watch(
     immediate: true,
   },
 );
-
 watch(
   () => props.groupId,
   async () => {
     resetPosts();
-
     if (props.active) {
       await loadGroupPosts(true);
-
       postsLoaded.value = true;
     }
   },
 );
-
 watch(groupPostsLoadTrigger, (element) => {
   observeGroupPostsTrigger(element);
 });
-
 onUnmounted(() => {
   if (groupPostsObserver) {
     groupPostsObserver.disconnect();

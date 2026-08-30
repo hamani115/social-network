@@ -2,7 +2,6 @@ export function nameInitials(name) {
   if (!name) {
     return "?";
   }
-
   return (
     name
       .trim()
@@ -13,11 +12,9 @@ export function nameInitials(name) {
       .toUpperCase() || "?"
   );
 }
-
 export function userInitials(user) {
   if (!user) {
     return "?";
   }
-
   return nameInitials(`${user.first_name || ""} ${user.last_name || ""}`);
 }

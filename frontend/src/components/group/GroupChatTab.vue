@@ -121,14 +121,11 @@
 
 <script setup>
 import { nextTick, onUnmounted, ref, watch } from "vue";
-
 import { apiRequest } from "../../services/api";
 import { useAuthStore } from "../../stores/auth";
 import { useWebSocketStore } from "../../stores/websocket";
 import { formatDateTime } from "../../utils/date";
-
 import UserAvatar from "../UserAvatar.vue";
-
 const props = defineProps({
   groupId: {
     type: [String, Number],
@@ -140,63 +137,44 @@ const props = defineProps({
     default: false,
   },
 });
-
 const auth = useAuthStore();
 const websocket = useWebSocketStore();
-
 const groupMessages = ref([]);
 const groupMessageInput = ref("");
-
 const loadingGroupMessages = ref(false);
 const loadingOlderGroupMessages = ref(false);
-
 const groupMessagesError = ref("");
-
 const GROUP_MESSAGES_PAGE_SIZE = 30;
-
 const hasMoreGroupMessages = ref(true);
 const groupMessagesBeforeID = ref(0);
-
 let groupMessagesRequestVersion = 0;
-
 const messagesLoaded = ref(false);
-
 // Scroll
 const groupMessagesContainer = ref(null);
-
 const GROUP_CHAT_TOP_THRESHOLD = 80;
 const GROUP_CHAT_BOTTOM_THRESHOLD = 100;
-
 const groupChatNearBottom = ref(true);
-
 const newGroupMessageCount = ref(0);
 
 function isGroupChatNearBottom() {
   const container = groupMessagesContainer.value;
-
   if (!container) {
     return true;
   }
-
   const distanceFromBottom =
     container.scrollHeight - container.scrollTop - container.clientHeight;
-
   return distanceFromBottom <= GROUP_CHAT_BOTTOM_THRESHOLD;
 }
 
 function handleGroupChatScroll() {
   const container = groupMessagesContainer.value;
-
   if (!container) {
     return;
   }
-
   groupChatNearBottom.value = isGroupChatNearBottom();
-
   if (groupChatNearBottom.value) {
     newGroupMessageCount.value = 0;
   }
-
   if (
     container.scrollTop <= GROUP_CHAT_TOP_THRESHOLD &&
     hasMoreGroupMessages.value &&
@@ -209,17 +187,12 @@ function handleGroupChatScroll() {
 
 async function scrollGroupChatToBottom() {
   await nextTick();
-
   const container = groupMessagesContainer.value;
-
   if (!container) {
     return;
   }
-
   container.scrollTop = container.scrollHeight;
-
   groupChatNearBottom.value = true;
-
   newGroupMessageCount.value = 0;
 }
 
@@ -238,86 +211,58 @@ async function loadGroupMessages(reset = false) {
   ) {
     return;
   }
-
   if (reset) {
     groupMessagesRequestVersion += 1;
-
     groupMessages.value = [];
-
     groupMessagesBeforeID.value = 0;
-
     hasMoreGroupMessages.value = true;
-
     newGroupMessageCount.value = 0;
-
     groupMessagesError.value = "";
   }
-
   const requestVersion = groupMessagesRequestVersion;
-
   const loadingOlder = !reset && groupMessages.value.length > 0;
-
   const container = groupMessagesContainer.value;
-
   const previousScrollHeight = container ? container.scrollHeight : 0;
-
   const previousScrollTop = container ? container.scrollTop : 0;
-
   try {
     if (loadingOlder) {
       loadingOlderGroupMessages.value = true;
     } else {
       loadingGroupMessages.value = true;
     }
-
     groupMessagesError.value = "";
-
     const params = new URLSearchParams();
-
     params.set("limit", String(GROUP_MESSAGES_PAGE_SIZE));
-
     if (loadingOlder && groupMessagesBeforeID.value) {
       params.set("before_id", String(groupMessagesBeforeID.value));
     }
-
     const result = await apiRequest(
       `/groups/${props.groupId}/messages` + `?${params.toString()}`,
     );
-
     if (requestVersion !== groupMessagesRequestVersion) {
       return;
     }
-
     const incomingMessages = result.messages || [];
-
     if (reset) {
       groupMessages.value = incomingMessages;
     } else {
       const existingIDs = new Set(
         groupMessages.value.map((message) => message.id),
       );
-
       const olderMessages = incomingMessages.filter(
         (message) => !existingIDs.has(message.id),
       );
-
       groupMessages.value = [...olderMessages, ...groupMessages.value];
     }
-
     hasMoreGroupMessages.value = Boolean(result.has_more);
-
     groupMessagesBeforeID.value = result.next_before_id || 0;
-
     await nextTick();
-
     if (reset) {
       await scrollGroupChatToBottom();
     } else {
       const updatedContainer = groupMessagesContainer.value;
-
       if (updatedContainer) {
         const newScrollHeight = updatedContainer.scrollHeight;
-
         updatedContainer.scrollTop =
           previousScrollTop + (newScrollHeight - previousScrollHeight);
       }
@@ -329,7 +274,6 @@ async function loadGroupMessages(reset = false) {
   } finally {
     if (requestVersion === groupMessagesRequestVersion) {
       loadingGroupMessages.value = false;
-
       loadingOlderGroupMessages.value = false;
     }
   }
@@ -340,21 +284,16 @@ function handleIncomingGroupMessage(message) {
   if (!message) {
     return;
   }
-
   if (message.group_id !== Number(props.groupId)) {
     return;
   }
-
   const alreadyExists = groupMessages.value.some(
     (existingMessage) => existingMessage.id === message.id,
   );
-
   if (alreadyExists) {
     return;
   }
-
   groupMessages.value.push(message);
-
   if (props.active) {
     scrollGroupChatToBottom();
   }
@@ -362,44 +301,32 @@ function handleIncomingGroupMessage(message) {
 
 function sendGroupMessage() {
   groupMessagesError.value = "";
-
   const content = groupMessageInput.value.trim();
-
   if (!content) {
     return;
   }
-
   const sent = websocket.send({
     type: "group_message",
     group_id: Number(props.groupId),
     content,
   });
-
   if (!sent) {
     groupMessagesError.value = websocket.error;
-
     return;
   }
-
   groupMessageInput.value = "";
 }
 
 function resetGroupChat() {
   groupMessagesRequestVersion += 1;
-
   messagesLoaded.value = false;
-
   groupMessages.value = [];
   groupMessageInput.value = "";
-
   loadingGroupMessages.value = false;
   loadingOlderGroupMessages.value = false;
-
   groupMessagesError.value = "";
-
   hasMoreGroupMessages.value = true;
   groupMessagesBeforeID.value = 0;
-
   newGroupMessageCount.value = 0;
   groupChatNearBottom.value = true;
 }
@@ -410,17 +337,12 @@ watch(
   async (active) => {
     if (!active) {
       websocket.setActiveGroup(null);
-
       return;
     }
-
     websocket.setActiveGroup(Number(props.groupId));
-
     newGroupMessageCount.value = 0;
-
     if (!messagesLoaded.value) {
       await loadGroupMessages(true);
-
       messagesLoaded.value = true;
     } else {
       await scrollGroupChatToBottom();
@@ -430,46 +352,35 @@ watch(
     immediate: true,
   },
 );
-
 // Different group
 watch(
   () => props.groupId,
   async () => {
     resetGroupChat();
-
     if (!props.active) {
       websocket.setActiveGroup(null);
-
       return;
     }
-
     websocket.setActiveGroup(Number(props.groupId));
-
     await loadGroupMessages(true);
-
     messagesLoaded.value = true;
   },
 );
-
 // WebSocket
 watch(
   () => websocket.eventVersion,
   () => {
     const event = websocket.lastEvent;
-
     if (!event) {
       return;
     }
-
     if (event.type === "group_message") {
       handleIncomingGroupMessage(event.data);
     }
   },
 );
-
 onUnmounted(() => {
   groupMessagesRequestVersion += 1;
-
   websocket.setActiveGroup(null);
 });
 </script>

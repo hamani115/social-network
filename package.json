@@ -1,5 +1,8 @@
 {
   "devDependencies": {
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-vue": "^10.10.0",
     "prettier": "^3.9.6"
   }
 }

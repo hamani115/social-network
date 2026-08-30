@@ -1,6 +1,5 @@
 import { defineStore } from "pinia";
 import { apiRequest } from "../services/api";
-
 export const useAuthStore = defineStore("auth", {
   state: () => ({
     user: null,
@@ -16,11 +15,9 @@ export const useAuthStore = defineStore("auth", {
       formData.append("date_of_birth", form.date_of_birth);
       formData.append("nickname", form.nickname);
       formData.append("about_me", form.about_me);
-
       if (avatar) {
         formData.append("avatar", avatar);
       }
-
       return await apiRequest("/register", {
         method: "POST",
         body: formData,
@@ -32,7 +29,6 @@ export const useAuthStore = defineStore("auth", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
-
       await this.fetchMe();
     },
 
@@ -45,7 +41,6 @@ export const useAuthStore = defineStore("auth", {
       await apiRequest("/logout", {
         method: "POST",
       });
-
       this.user = null;
     },
   },

@@ -1,7 +1,5 @@
 <template>
   <main class="notifications-page">
-    
-
     <header class="notifications-header">
       <h1>Notifications</h1>
 
@@ -48,8 +46,6 @@
       </button>
     </div>
 
-    
-
     <p v-if="notifications.error" class="notifications-error">
       {{ notifications.error }}
     </p>
@@ -61,8 +57,6 @@
 
       Loading notifications...
     </div>
-
-    
 
     <section
       v-else-if="notifications.notifications.length === 0"
@@ -189,7 +183,6 @@ import { onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useNotificationsStore } from "../stores/notifications";
 import { formatNotificationTime } from "../utils/date";
-
 const router = useRouter();
 const notifications = useNotificationsStore();
 const notificationsLoadTrigger = ref(null);
@@ -203,13 +196,11 @@ async function openNotification(notification) {
   if (!notification) {
     return;
   }
-
   if (!notification.is_read) {
     try {
       await notifications.markAsRead(notification.id);
     } catch {}
   }
-
   if (notification.link_path) {
     router.push(notification.link_path);
   }
@@ -268,18 +259,14 @@ function notificationMeta(type) {
 function observeNotificationsTrigger(element) {
   if (notificationsObserver) {
     notificationsObserver.disconnect();
-
     notificationsObserver = null;
   }
-
   if (!element) {
     return;
   }
-
   notificationsObserver = new IntersectionObserver(
     (entries) => {
       const entry = entries[0];
-
       if (
         entry.isIntersecting &&
         notifications.hasMore &&
@@ -295,21 +282,17 @@ function observeNotificationsTrigger(element) {
       threshold: 0,
     },
   );
-
   notificationsObserver.observe(element);
 }
 
 watch(notificationsLoadTrigger, (element) => {
   observeNotificationsTrigger(element);
 });
-
-
 onMounted(async () => {
   if (!notifications.initialized) {
     await notifications.fetchNotifications(true);
   }
 });
-
 onUnmounted(() => {
   if (notificationsObserver) {
     notificationsObserver.disconnect();
@@ -595,7 +578,6 @@ onUnmounted(() => {
 .notifications-empty h2 {
   margin-bottom: 5px;
 }
-
 
 .notifications-error {
   margin-bottom: 15px;

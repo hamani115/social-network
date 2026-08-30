@@ -1,7 +1,5 @@
 <template>
   <section v-show="active" class="group-tab-panel group-members-panel">
-    
-
     <div class="group-panel-heading">
       <h2>Members</h2>
 
@@ -230,11 +228,8 @@
 
 <script setup>
 import UserAvatar from "../UserAvatar.vue";
-
 import { onUnmounted, ref, watch } from "vue";
-
 import { apiRequest } from "../../services/api";
-
 const props = defineProps({
   groupId: {
     type: [String, Number],
@@ -251,56 +246,35 @@ const props = defineProps({
     default: false,
   },
 });
-
 const emit = defineEmits(["invitation-sent"]);
-
 const groupMembers = ref([]);
-
 const loadingGroupMembers = ref(false);
 const loadingMoreGroupMembers = ref(false);
-
 const groupMembersError = ref("");
 const groupMembersLoadMoreError = ref("");
-
 const GROUP_MEMBERS_PAGE_SIZE = 20;
-
 const groupMemberOffset = ref(0);
 const hasMoreGroupMembers = ref(true);
-
 const groupMembersLoadTrigger = ref(null);
-
 let groupMembersObserver = null;
 let groupMembersRequestVersion = 0;
-
 const membersLoaded = ref(false);
-
 // search
-
 const memberSearchQuery = ref("");
 const debouncedMemberSearchQuery = ref("");
-
 let memberSearchTimer = null;
-
 const inviteCandidates = ref([]);
-
 const inviteSearchQuery = ref("");
 const debouncedInviteSearchQuery = ref("");
-
 const loadingInviteCandidates = ref(false);
 const loadingMoreInviteCandidates = ref(false);
-
 const inviteCandidatesError = ref("");
-
 const INVITE_CANDIDATE_PAGE_SIZE = 10;
-
 const inviteCandidateOffset = ref(0);
 const hasMoreInviteCandidates = ref(false);
-
 const invitingUserID = ref(null);
-
 const inviteError = ref("");
 const inviteMessage = ref("");
-
 let inviteSearchTimer = null;
 let inviteRequestVersion = 0;
 
@@ -313,75 +287,53 @@ async function loadGroupMembers(reset = false) {
   ) {
     return;
   }
-
   if (reset) {
     groupMembersRequestVersion += 1;
-
     groupMembers.value = [];
-
     groupMemberOffset.value = 0;
-
     hasMoreGroupMembers.value = true;
-
     groupMembersLoadMoreError.value = "";
   }
-
   const requestVersion = groupMembersRequestVersion;
-
   const initialLoad = groupMemberOffset.value === 0;
-
   try {
     if (initialLoad) {
       loadingGroupMembers.value = true;
-
       groupMembersError.value = "";
     } else {
       loadingMoreGroupMembers.value = true;
-
       groupMembersLoadMoreError.value = "";
     }
-
     const params = new URLSearchParams();
-
     params.set("limit", String(GROUP_MEMBERS_PAGE_SIZE));
-
     params.set("offset", String(groupMemberOffset.value));
-
     if (debouncedMemberSearchQuery.value) {
       params.set("q", debouncedMemberSearchQuery.value);
     }
-
     const result = await apiRequest(
       `/groups/${props.groupId}/members` + `?${params.toString()}`,
     );
-
     if (requestVersion !== groupMembersRequestVersion) {
       return;
     }
-
     const incomingMembers = result.members || [];
-
     if (reset) {
       groupMembers.value = incomingMembers;
     } else {
       const existingIDs = new Set(
         groupMembers.value.map((member) => member.id),
       );
-
       groupMembers.value.push(
         ...incomingMembers.filter((member) => !existingIDs.has(member.id)),
       );
     }
-
     groupMemberOffset.value =
       result.next_offset ?? groupMemberOffset.value + incomingMembers.length;
-
     hasMoreGroupMembers.value = Boolean(result.has_more);
   } catch (err) {
     if (requestVersion !== groupMembersRequestVersion) {
       return;
     }
-
     if (initialLoad) {
       groupMembersError.value = err.message;
     } else {
@@ -390,7 +342,6 @@ async function loadGroupMembers(reset = false) {
   } finally {
     if (requestVersion === groupMembersRequestVersion) {
       loadingGroupMembers.value = false;
-
       loadingMoreGroupMembers.value = false;
     }
   }
@@ -399,14 +350,10 @@ async function loadGroupMembers(reset = false) {
 async function clearMemberSearch() {
   if (memberSearchTimer) {
     clearTimeout(memberSearchTimer);
-
     memberSearchTimer = null;
   }
-
   memberSearchQuery.value = "";
-
   debouncedMemberSearchQuery.value = "";
-
   await loadGroupMembers(true);
 }
 
@@ -415,18 +362,14 @@ async function clearMemberSearch() {
 function observeGroupMembersTrigger(element) {
   if (groupMembersObserver) {
     groupMembersObserver.disconnect();
-
     groupMembersObserver = null;
   }
-
   if (!element) {
     return;
   }
-
   groupMembersObserver = new IntersectionObserver(
     (entries) => {
       const entry = entries[0];
-
       if (
         entry.isIntersecting &&
         props.active &&
@@ -443,21 +386,16 @@ function observeGroupMembersTrigger(element) {
       threshold: 0,
     },
   );
-
   groupMembersObserver.observe(element);
 }
 
 async function loadInviteCandidates(reset = false) {
   const query = debouncedInviteSearchQuery.value.trim();
-
   if (!query) {
     inviteCandidates.value = [];
-
     hasMoreInviteCandidates.value = false;
-
     return;
   }
-
   if (
     !reset &&
     (loadingInviteCandidates.value ||
@@ -466,67 +404,47 @@ async function loadInviteCandidates(reset = false) {
   ) {
     return;
   }
-
   if (reset) {
     inviteRequestVersion += 1;
-
     inviteCandidates.value = [];
-
     inviteCandidateOffset.value = 0;
-
     hasMoreInviteCandidates.value = true;
-
     inviteCandidatesError.value = "";
   }
-
   const requestVersion = inviteRequestVersion;
-
   const initialLoad = inviteCandidateOffset.value === 0;
-
   try {
     if (initialLoad) {
       loadingInviteCandidates.value = true;
     } else {
       loadingMoreInviteCandidates.value = true;
     }
-
     inviteCandidatesError.value = "";
-
     const params = new URLSearchParams();
-
     params.set("q", query);
-
     params.set("limit", String(INVITE_CANDIDATE_PAGE_SIZE));
-
     params.set("offset", String(inviteCandidateOffset.value));
-
     const result = await apiRequest(
       `/groups/${props.groupId}` +
         `/invite-candidates` +
         `?${params.toString()}`,
     );
-
     if (requestVersion !== inviteRequestVersion) {
       return;
     }
-
     const incomingUsers = result.users || [];
-
     if (reset) {
       inviteCandidates.value = incomingUsers;
     } else {
       const existingIDs = new Set(
         inviteCandidates.value.map((user) => user.id),
       );
-
       inviteCandidates.value.push(
         ...incomingUsers.filter((user) => !existingIDs.has(user.id)),
       );
     }
-
     inviteCandidateOffset.value =
       result.next_offset ?? inviteCandidateOffset.value + incomingUsers.length;
-
     hasMoreInviteCandidates.value = Boolean(result.has_more);
   } catch (err) {
     if (requestVersion === inviteRequestVersion) {
@@ -535,7 +453,6 @@ async function loadInviteCandidates(reset = false) {
   } finally {
     if (requestVersion === inviteRequestVersion) {
       loadingInviteCandidates.value = false;
-
       loadingMoreInviteCandidates.value = false;
     }
   }
@@ -544,10 +461,8 @@ async function loadInviteCandidates(reset = false) {
 async function sendInvitation(user) {
   try {
     invitingUserID.value = user.id;
-
     inviteError.value = "";
     inviteMessage.value = "";
-
     await apiRequest(`/groups/${props.groupId}/invitations`, {
       method: "POST",
 
@@ -555,14 +470,11 @@ async function sendInvitation(user) {
         invitee_id: user.id,
       }),
     });
-
     inviteMessage.value =
       `Invitation sent to ` + `${user.first_name} ` + `${user.last_name}.`;
-
     inviteCandidates.value = inviteCandidates.value.filter(
       (candidate) => candidate.id !== user.id,
     );
-
     emit("invitation-sent");
   } catch (err) {
     inviteError.value = err.message;
@@ -574,50 +486,33 @@ async function sendInvitation(user) {
 function resetMembers() {
   groupMembersRequestVersion += 1;
   inviteRequestVersion += 1;
-
   if (memberSearchTimer) {
     clearTimeout(memberSearchTimer);
     memberSearchTimer = null;
   }
-
   if (inviteSearchTimer) {
     clearTimeout(inviteSearchTimer);
     inviteSearchTimer = null;
   }
-
   membersLoaded.value = false;
-
   groupMembers.value = [];
-
   loadingGroupMembers.value = false;
   loadingMoreGroupMembers.value = false;
-
   groupMembersError.value = "";
   groupMembersLoadMoreError.value = "";
-
   groupMemberOffset.value = 0;
   hasMoreGroupMembers.value = true;
-
   memberSearchQuery.value = "";
   debouncedMemberSearchQuery.value = "";
-
   inviteCandidates.value = [];
-
   inviteSearchQuery.value = "";
   debouncedInviteSearchQuery.value = "";
-
   loadingInviteCandidates.value = false;
-
   loadingMoreInviteCandidates.value = false;
-
   inviteCandidatesError.value = "";
-
   inviteCandidateOffset.value = 0;
-
   hasMoreInviteCandidates.value = false;
-
   invitingUserID.value = null;
-
   inviteError.value = "";
   inviteMessage.value = "";
 }
@@ -627,7 +522,6 @@ watch(
   async (active) => {
     if (active && !membersLoaded.value) {
       await loadGroupMembers(true);
-
       membersLoaded.value = true;
     }
   },
@@ -635,82 +529,61 @@ watch(
     immediate: true,
   },
 );
-
 watch(
   () => props.groupId,
   async () => {
     resetMembers();
-
     if (props.active) {
       await loadGroupMembers(true);
-
       membersLoaded.value = true;
     }
   },
 );
-
 watch(
   () => props.memberCount,
   async (newMemberCount, oldMemberCount) => {
     if (newMemberCount === oldMemberCount || !membersLoaded.value) {
       return;
     }
-
     await loadGroupMembers(true);
   },
 );
-
 watch(memberSearchQuery, (value) => {
   if (memberSearchTimer) {
     clearTimeout(memberSearchTimer);
   }
-
   memberSearchTimer = setTimeout(async () => {
     debouncedMemberSearchQuery.value = value.trim();
-
     await loadGroupMembers(true);
   }, 300);
 });
-
 watch(inviteSearchQuery, (value) => {
   if (inviteSearchTimer) {
     clearTimeout(inviteSearchTimer);
   }
-
   const trimmed = value.trim();
-
   if (!trimmed) {
     inviteRequestVersion += 1;
-
     debouncedInviteSearchQuery.value = "";
-
     inviteCandidates.value = [];
-
     hasMoreInviteCandidates.value = false;
-
     return;
   }
-
   inviteSearchTimer = setTimeout(async () => {
     debouncedInviteSearchQuery.value = trimmed;
-
     await loadInviteCandidates(true);
   }, 300);
 });
-
 watch(groupMembersLoadTrigger, (element) => {
   observeGroupMembersTrigger(element);
 });
-
 onUnmounted(() => {
   if (groupMembersObserver) {
     groupMembersObserver.disconnect();
   }
-
   if (memberSearchTimer) {
     clearTimeout(memberSearchTimer);
   }
-
   if (inviteSearchTimer) {
     clearTimeout(inviteSearchTimer);
   }

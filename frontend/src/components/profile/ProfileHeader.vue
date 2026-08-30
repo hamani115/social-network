@@ -3,7 +3,6 @@
     <div class="profile-cover"></div>
 
     <div class="profile-header-content">
-      
       <div class="avatar-wrapper">
         <UserAvatar
           :avatar-path="profile.avatar_path"
@@ -15,7 +14,6 @@
         />
       </div>
 
-      
       <div class="profile-main-info">
         <div class="profile-title-row">
           <div>
@@ -107,7 +105,6 @@
           </button>
         </div>
 
-        
         <div v-if="profile.is_owner" class="profile-actions">
           <button class="secondary-button" type="button" @click="$emit('edit')">
             Edit profile
@@ -163,16 +160,13 @@
 
 <script setup>
 import UserAvatar from "../UserAvatar.vue";
-
 import { formatDateOfBirth } from "../../utils/date";
-
 defineProps({
   profile: {
     type: Object,
     required: true,
   },
 });
-
 defineEmits(["follow", "unfollow", "edit"]);
 </script>
 

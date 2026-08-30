@@ -81,17 +81,14 @@
 
 <script setup>
 import { ref, watch } from "vue";
-
 import { apiRequest } from "../../services/api";
 import { formatDate } from "../../utils/date";
-
 const props = defineProps({
   profile: {
     type: Object,
     required: true,
   },
 });
-
 const posts = ref([]);
 const loadingPosts = ref(false);
 const postsError = ref("");
@@ -100,11 +97,9 @@ async function loadProfilePosts() {
   if (!props.profile?.id) {
     return;
   }
-
   try {
     loadingPosts.value = true;
     postsError.value = "";
-
     posts.value = await apiRequest(`/profiles/${props.profile.id}/posts`);
   } catch (err) {
     posts.value = [];
@@ -116,9 +111,7 @@ async function loadProfilePosts() {
 
 function userInitials(user) {
   const firstInitial = user.first_name?.charAt(0) || "";
-
   const lastInitial = user.last_name?.charAt(0) || "";
-
   return (firstInitial + lastInitial).toUpperCase();
 }
 
@@ -126,13 +119,10 @@ function privacyLabel(privacy) {
   switch (privacy) {
     case "public":
       return "Public";
-
     case "followers":
       return "Followers";
-
     case "private":
       return "Selected followers";
-
     default:
       return privacy;
   }

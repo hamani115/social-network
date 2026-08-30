@@ -31,7 +31,6 @@ services:
 
     restart: unless-stopped
 
-
 volumes:
   backend-data:
   backend-uploads:

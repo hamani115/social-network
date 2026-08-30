@@ -112,9 +112,7 @@ import { useRouter } from "vue-router";
 import { useAuthStore } from "./stores/auth";
 import { useNotificationsStore } from "./stores/notifications";
 import { useWebSocketStore } from "./stores/websocket";
-
 import UserAvatar from "./components/UserAvatar.vue";
-
 const auth = useAuthStore();
 const notifications = useNotificationsStore();
 const websocket = useWebSocketStore();
@@ -123,7 +121,6 @@ const router = useRouter();
 async function handleLogout() {
   try {
     await auth.logout();
-
     await router.replace("/login");
   } catch (err) {
     console.error(err);
@@ -135,11 +132,9 @@ watch(
   async (user) => {
     if (user) {
       websocket.connect(user.id);
-
       await notifications.fetchNotifications();
     } else {
       notifications.clear();
-
       websocket.disconnect();
     }
   },
@@ -153,15 +148,12 @@ async function handleGlobalApiError(event) {
   if (!detail) {
     return;
   }
-
   const currentRoute = router.currentRoute.value;
-
   // SESSION EXPIRED
   if (detail.type === "unauthorized") {
     if (currentRoute.path === "/login" || currentRoute.path === "/register") {
       return;
     }
-
     const redirect = currentRoute.fullPath;
     auth.user = null;
     await router.replace({
@@ -172,13 +164,11 @@ async function handleGlobalApiError(event) {
     });
     return;
   }
-
   // BACKEND UNAVAILABLE
   if (detail.type === "server-unavailable") {
     if (currentRoute.path === "/server-unavailable") {
       return;
     }
-
     await router.replace({
       path: "/server-unavailable",
       query: {
@@ -187,13 +177,11 @@ async function handleGlobalApiError(event) {
     });
     return;
   }
-
   // GENERIC
   if (detail.type === "generic") {
     if (currentRoute.path === "/error") {
       return;
     }
-
     await router.replace({
       path: "/error",
       query: {
@@ -206,7 +194,6 @@ async function handleGlobalApiError(event) {
 onMounted(() => {
   window.addEventListener("api-global-error", handleGlobalApiError);
 });
-
 onUnmounted(() => {
   window.removeEventListener("api-global-error", handleGlobalApiError);
 });

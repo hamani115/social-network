@@ -47,19 +47,15 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { apiRequest } from "../services/api";
 import { useAuthStore } from "../stores/auth";
-
 import ProfileHeader from "../components/profile/ProfileHeader.vue";
 import ProfileConnections from "../components/profile/ProfileConnections.vue";
 import ProfileActivity from "../components/profile/ProfileActivity.vue";
 import EditProfileModal from "../components/profile/EditProfileModal.vue";
-
 const route = useRoute();
 const auth = useAuthStore();
-
 const profile = ref(null);
 const loading = ref(false);
 const error = ref("");
-
 const updateMessage = ref("");
 const editModalOpen = ref(false);
 
@@ -74,9 +70,7 @@ function isMyProfileRoute() {
 
 async function handleProfileUpdated() {
   editModalOpen.value = false;
-
   await loadProfile();
-
   if (isMyProfileRoute() && auth.user && profile.value) {
     Object.assign(auth.user, {
       email: profile.value.email,
@@ -86,7 +80,6 @@ async function handleProfileUpdated() {
       avatar_path: profile.value.avatar_path,
     });
   }
-
   updateMessage.value = "Profile updated successfully";
 }
 
@@ -94,7 +87,6 @@ function profileApiPath() {
   if (isMyProfileRoute()) {
     return "/profile/me";
   }
-
   return `/profiles/${route.params.id}`;
 }
 
@@ -103,7 +95,6 @@ async function loadProfile() {
     loading.value = true;
     error.value = "";
     updateMessage.value = "";
-
     profile.value = await apiRequest(profileApiPath());
   } catch (err) {
     error.value = err.message;
@@ -114,14 +105,11 @@ async function loadProfile() {
 
 async function followUser() {
   if (!profile.value) return;
-
   try {
     error.value = "";
-
     await apiRequest(`/users/${profile.value.id}/follow`, {
       method: "POST",
     });
-
     await loadProfile();
   } catch (err) {
     error.value = err.message;
@@ -130,14 +118,11 @@ async function followUser() {
 
 async function unfollowUser() {
   if (!profile.value) return;
-
   try {
     error.value = "";
-
     await apiRequest(`/users/${profile.value.id}/unfollow`, {
       method: "POST",
     });
-
     await loadProfile();
   } catch (err) {
     error.value = err.message;
@@ -147,7 +132,6 @@ async function unfollowUser() {
 onMounted(() => {
   loadProfile();
 });
-
 watch(
   () => route.fullPath,
   () => {
@@ -231,6 +215,5 @@ watch(
   .profile-page {
     padding: 16px 12px 40px;
   }
-
 }
 </style>

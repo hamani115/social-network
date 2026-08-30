@@ -7,7 +7,6 @@
         aria-modal="true"
         aria-labelledby="edit-profile-title"
       >
-        
         <header class="modal-header">
           <div>
             <h2 id="edit-profile-title">Edit profile</h2>
@@ -27,7 +26,6 @@
         <!-- FORM -->
         <form class="edit-profile-form" @submit.prevent="updateProfile">
           <div class="modal-body">
-            
             <div class="edit-field">
               <label for="edit-avatar">Profile picture</label>
 
@@ -56,9 +54,7 @@
                     Selected: {{ editAvatar.name }}
                   </small>
 
-                  <small v-else>
-                    JPEG, PNG or GIF
-                  </small>
+                  <small v-else> JPEG, PNG or GIF </small>
                 </div>
               </div>
             </div>
@@ -192,16 +188,13 @@
 <script setup>
 import { ref } from "vue";
 import { apiRequest } from "../../services/api";
-
 const props = defineProps({
   profile: {
     type: Object,
     required: true,
   },
 });
-
 const emit = defineEmits(["close", "updated"]);
-
 const editForm = ref({
   email: props.profile.email || "",
   first_name: props.profile.first_name || "",
@@ -211,10 +204,8 @@ const editForm = ref({
   about_me: props.profile.about_me || "",
   is_public: props.profile.is_public,
 });
-
 const editAvatar = ref(null);
 const editAvatarInput = ref(null);
-
 const updatingProfile = ref(false);
 const updateError = ref("");
 
@@ -224,9 +215,7 @@ function handleEditAvatarChange(event) {
 
 function userInitials(user) {
   const first = user.first_name?.charAt(0) || "";
-
   const last = user.last_name?.charAt(0) || "";
-
   return (first + last).toUpperCase();
 }
 
@@ -234,7 +223,6 @@ function closeModal() {
   if (updatingProfile.value) {
     return;
   }
-
   emit("close");
 }
 
@@ -242,32 +230,21 @@ async function updateProfile() {
   try {
     updatingProfile.value = true;
     updateError.value = "";
-
     const formData = new FormData();
-
     formData.append("email", editForm.value.email);
-
     formData.append("first_name", editForm.value.first_name);
-
     formData.append("last_name", editForm.value.last_name);
-
     formData.append("date_of_birth", editForm.value.date_of_birth);
-
     formData.append("nickname", editForm.value.nickname);
-
     formData.append("about_me", editForm.value.about_me);
-
     formData.append("is_public", String(editForm.value.is_public));
-
     if (editAvatar.value) {
       formData.append("avatar", editAvatar.value);
     }
-
     await apiRequest("/profile/me", {
       method: "PUT",
       body: formData,
     });
-
     emit("updated");
   } catch (err) {
     updateError.value = err.message;

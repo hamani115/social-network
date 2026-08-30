@@ -1,7 +1,6 @@
 <template>
   <main class="feed-page">
     <div class="feed-layout">
-
       <div class="feed-main">
         <header class="feed-heading">
           <h1>Your Feed</h1>
@@ -52,13 +51,9 @@
             Loading posts...
           </div>
 
-          
-
           <div v-else-if="loadError" class="feed-state feed-state-error">
             {{ loadError }}
           </div>
-
-          
 
           <div v-else-if="posts.length === 0" class="empty-state">
             <div class="empty-state-icon">
@@ -344,8 +339,6 @@
         aria-modal="true"
         aria-labelledby="create-post-title"
       >
-        
-
         <header class="post-modal-header">
           <div>
             <h2 id="create-post-title">Create post</h2>
@@ -366,7 +359,6 @@
 
         <form class="post-form post-modal-form" @submit.prevent="createPost">
           <div class="post-modal-body">
-
             <div class="post-modal-author">
               <UserAvatar
                 :avatar-path="auth.user.avatar_path"
@@ -456,7 +448,6 @@
 
           <footer class="post-modal-footer">
             <div class="post-tools">
-
               <label for="post-image" class="toolbar-button">
                 <span class="toolbar-icon">
                   <i class="fa-solid fa-image" aria-hidden="true"></i>
@@ -520,31 +511,21 @@ import { onBeforeUnmount, ref, watch } from "vue";
 import { useAuthStore } from "../stores/auth";
 import { apiRequest } from "../services/api";
 import { formatDateTime } from "../utils/date";
-
 import UserAvatar from "../components/UserAvatar.vue";
-
 const auth = useAuthStore();
-
 // Posts
 const posts = ref([]);
 const loading = ref(false);
 const loadError = ref("");
 const postError = ref("");
 const feedSort = ref("newest");
-
 const POSTS_PAGE_SIZE = 10;
-
 const postOffset = ref(0);
 const hasMorePosts = ref(true);
-
 const loadingMorePosts = ref(false);
-
 const loadMoreError = ref("");
-
 const loadMoreTrigger = ref(null);
-
 let postObserver = null;
-
 const newPostContent = ref("");
 const newPostPrivacy = ref("public");
 const postModalOpen = ref(false);
@@ -555,16 +536,11 @@ const newComments = ref({});
 const commentErrors = ref({});
 const loadingComments = ref({});
 const openComments = ref({});
-
 const commentsHasMore = ref({});
 const commentsBeforeID = ref({});
-
 const loadingEarlierComments = ref({});
-
 const commentImageInputs = ref({});
-
 const COMMENTS_PAGE_SIZE = 5;
-
 // Images
 const newPostImage = ref(null);
 const postImageInput = ref(null);
@@ -576,10 +552,8 @@ const followersError = ref("");
 
 async function loadMyFollowers() {
   if (!auth.user) return;
-
   try {
     followersError.value = "";
-
     myFollowers.value = await apiRequest(`/users/${auth.user.id}/followers`);
   } catch (err) {
     followersError.value = err.message;
@@ -591,61 +565,47 @@ async function loadPosts(reset = false) {
   if (!auth.user) {
     return;
   }
-
   if (
     !reset &&
     (loading.value || loadingMorePosts.value || !hasMorePosts.value)
   ) {
     return;
   }
-
   if (reset) {
     posts.value = [];
-
     postOffset.value = 0;
-
     hasMorePosts.value = true;
-
     loadMoreError.value = "";
   }
-
   const initialLoad = posts.value.length === 0;
-
   try {
     if (initialLoad) {
       loading.value = true;
     } else {
       loadingMorePosts.value = true;
     }
-
     if (initialLoad) {
       loadError.value = "";
     } else {
       loadMoreError.value = "";
     }
-
     const result = await apiRequest(
       `/posts` +
         `?limit=${POSTS_PAGE_SIZE}` +
         `&offset=${postOffset.value}` +
         `&sort=${feedSort.value}`,
     );
-
     const incomingPosts = result.posts || [];
-
     if (reset) {
       posts.value = incomingPosts;
     } else {
       const existingIDs = new Set(posts.value.map((post) => post.id));
-
       posts.value.push(
         ...incomingPosts.filter((post) => !existingIDs.has(post.id)),
       );
     }
-
     postOffset.value =
       result.next_offset ?? postOffset.value + incomingPosts.length;
-
     hasMorePosts.value = Boolean(result.has_more);
   } catch (err) {
     if (initialLoad) {
@@ -655,7 +615,6 @@ async function loadPosts(reset = false) {
     }
   } finally {
     loading.value = false;
-
     loadingMorePosts.value = false;
   }
 }
@@ -665,15 +624,12 @@ function observeLoadMoreTrigger(element) {
     postObserver.disconnect();
     postObserver = null;
   }
-
   if (!element) {
     return;
   }
-
   postObserver = new IntersectionObserver(
     (entries) => {
       const entry = entries[0];
-
       if (
         entry.isIntersecting &&
         hasMorePosts.value &&
@@ -691,7 +647,6 @@ function observeLoadMoreTrigger(element) {
       threshold: 0,
     },
   );
-
   postObserver.observe(element);
 }
 
@@ -705,7 +660,6 @@ function resetPostForm() {
   newPostPrivacy.value = "public";
   newPostImage.value = null;
   selectedAllowedUserIDs.value = [];
-
   if (postImageInput.value) {
     postImageInput.value.value = "";
   }
@@ -715,10 +669,8 @@ function closePostModal() {
   if (posting.value) {
     return;
   }
-
   postModalOpen.value = false;
   postError.value = "";
-
   resetPostForm();
 }
 
@@ -726,33 +678,24 @@ async function createPost() {
   try {
     posting.value = true;
     postError.value = "";
-
     const formData = new FormData();
-
     formData.append("content", newPostContent.value);
-
     formData.append("privacy", newPostPrivacy.value);
-
     if (newPostPrivacy.value === "private") {
       formData.append(
         "allowed_user_ids",
         JSON.stringify(selectedAllowedUserIDs.value),
       );
     }
-
     if (newPostImage.value) {
       formData.append("image", newPostImage.value);
     }
-
     await apiRequest("/posts", {
       method: "POST",
       body: formData,
     });
-
     resetPostForm();
-
     postModalOpen.value = false;
-
     await loadPosts(true);
   } catch (err) {
     postError.value = err.message;
@@ -768,19 +711,13 @@ async function loadComments(postId, loadEarlier = false) {
     } else {
       loadingComments.value[postId] = true;
     }
-
     commentErrors.value[postId] = "";
-
     let path = `/posts/${postId}/comments` + `?limit=${COMMENTS_PAGE_SIZE}`;
-
     if (loadEarlier && commentsBeforeID.value[postId]) {
       path += `&before_id=` + commentsBeforeID.value[postId];
     }
-
     const result = await apiRequest(path);
-
     const incoming = result.comments || [];
-
     if (loadEarlier) {
       commentsByPost.value[postId] = [
         ...incoming,
@@ -789,15 +726,12 @@ async function loadComments(postId, loadEarlier = false) {
     } else {
       commentsByPost.value[postId] = incoming;
     }
-
     commentsHasMore.value[postId] = Boolean(result.has_more);
-
     commentsBeforeID.value[postId] = result.next_before_id || 0;
   } catch (err) {
     commentErrors.value[postId] = err.message;
   } finally {
     loadingComments.value[postId] = false;
-
     loadingEarlierComments.value[postId] = false;
   }
 }
@@ -805,17 +739,13 @@ async function loadComments(postId, loadEarlier = false) {
 async function toggleComments(postId) {
   if (openComments.value[postId]) {
     openComments.value[postId] = false;
-
     return;
   }
-
   openComments.value[postId] = true;
-
   const alreadyLoaded = Object.prototype.hasOwnProperty.call(
     commentsByPost.value,
     postId,
   );
-
   if (!alreadyLoaded) {
     await loadComments(postId);
   }
@@ -825,34 +755,26 @@ async function loadEarlierComments(postId) {
   if (loadingEarlierComments.value[postId] || !commentsHasMore.value[postId]) {
     return;
   }
-
   await loadComments(postId, true);
 }
 
 async function createComment(postId) {
   try {
     commentErrors.value[postId] = "";
-
     const formData = new FormData();
-
     formData.append("content", newComments.value[postId] || "");
-
     if (newCommentImages.value[postId]) {
       formData.append("image", newCommentImages.value[postId]);
     }
-
     await apiRequest(`/posts/${postId}/comments`, {
       method: "POST",
       body: formData,
     });
-
     newComments.value[postId] = "";
     newCommentImages.value[postId] = null;
-
     if (commentImageInputs.value[postId]) {
       commentImageInputs.value[postId].value = "";
     }
-
     await loadComments(postId);
   } catch (err) {
     commentErrors.value[postId] = err.message;
@@ -863,13 +785,10 @@ function privacyLabel(privacy) {
   switch (privacy) {
     case "public":
       return "Public";
-
     case "followers":
       return "Followers";
-
     case "private":
       return "Selected";
-
     default:
       return privacy;
   }
@@ -892,29 +811,19 @@ function clearFeed() {
   loadError.value = "";
   postError.value = "";
   newCommentImages.value = {};
-
   myFollowers.value = [];
   selectedAllowedUserIDs.value = [];
   followersError.value = "";
-
   openComments.value = {};
-
   commentsHasMore.value = {};
   commentsBeforeID.value = {};
-
   loadingEarlierComments.value = {};
-
   commentImageInputs.value = {};
-
   //rest pagination
   feedSort.value = "newest";
-
   postOffset.value = 0;
-
   hasMorePosts.value = true;
-
   loadingMorePosts.value = false;
-
   loadMoreError.value = "";
 }
 
@@ -930,25 +839,20 @@ watch(
   },
   { immediate: true },
 );
-
 watch(feedSort, async () => {
   if (!auth.user) {
     return;
   }
-
   await loadPosts(true);
 });
-
 watch(loadMoreTrigger, (element) => {
   observeLoadMoreTrigger(element);
 });
-
 watch(newPostPrivacy, (privacy) => {
   if (privacy !== "private") {
     selectedAllowedUserIDs.value = [];
   }
 });
-
 onBeforeUnmount(() => {
   if (postObserver) {
     postObserver.disconnect();

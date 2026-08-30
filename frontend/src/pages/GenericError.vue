@@ -29,9 +29,7 @@
 
 <script setup>
 import { useRoute, useRouter } from "vue-router";
-
 const route = useRoute();
-
 const router = useRouter();
 
 function retry() {
@@ -40,7 +38,6 @@ function retry() {
 
 async function goBack() {
   const from = typeof route.query.from === "string" ? route.query.from : "/";
-
   await router.replace(from);
 }
 </script>

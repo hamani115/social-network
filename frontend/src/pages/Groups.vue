@@ -393,38 +393,29 @@
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { apiRequest } from "../services/api";
 import { useWebSocketStore } from "../stores/websocket";
-
 const websocket = useWebSocketStore();
-
 const groups = ref([]);
 const myInvitations = ref([]);
-
 const loadingGroups = ref(false);
 const loadingMoreGroups = ref(false);
 const groupsError = ref("");
 const groupsLoadMoreError = ref("");
 const GROUPS_PAGE_SIZE = 20;
-
 const groupOffset = ref(0);
 const hasMoreGroups = ref(true);
 const groupsLoadTrigger = ref(null);
 let groupsObserver = null;
-
 const searchQuery = ref("");
 const debouncedSearchQuery = ref("");
 let searchDebounceTimer = null;
 let groupsRequestVersion = 0;
-
 const loadingInvitations = ref(false);
 const invitationsError = ref("");
 const changingInvitationId = ref(null);
-
 const changingGroupId = ref(null);
-
 const createGroupModalOpen = ref(false);
 const creatingGroup = ref(false);
 const createError = ref("");
-
 const newGroup = ref({
   title: "",
   description: "",
@@ -434,13 +425,10 @@ function groupInitials(title) {
   if (!title) {
     return "G";
   }
-
   const parts = title.trim().split(/\s+/);
-
   if (parts.length === 1) {
     return parts[0].charAt(0).toUpperCase();
   }
-
   return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
 }
 
@@ -467,7 +455,6 @@ async function loadGroups(reset = false) {
   ) {
     return;
   }
-
   if (reset) {
     groupsRequestVersion += 1;
     groups.value = [];
@@ -475,10 +462,8 @@ async function loadGroups(reset = false) {
     hasMoreGroups.value = true;
     groupsLoadMoreError.value = "";
   }
-
   const requestVersion = groupsRequestVersion;
   const initialLoad = groupOffset.value === 0;
-
   try {
     if (initialLoad) {
       loadingGroups.value = true;
@@ -487,42 +472,32 @@ async function loadGroups(reset = false) {
       loadingMoreGroups.value = true;
       groupsLoadMoreError.value = "";
     }
-
     const params = new URLSearchParams();
     params.set("limit", String(GROUPS_PAGE_SIZE));
     params.set("offset", String(groupOffset.value));
-
     if (debouncedSearchQuery.value) {
       params.set("q", debouncedSearchQuery.value);
     }
-
     const result = await apiRequest(`/groups?${params.toString()}`);
-
     if (requestVersion !== groupsRequestVersion) {
       return;
     }
-
     const incomingGroups = result.groups || [];
-
     if (reset) {
       groups.value = incomingGroups;
     } else {
       const existingIDs = new Set(groups.value.map((group) => group.id));
-
       groups.value.push(
         ...incomingGroups.filter((group) => !existingIDs.has(group.id)),
       );
     }
-
     groupOffset.value =
       result.next_offset ?? groupOffset.value + incomingGroups.length;
-
     hasMoreGroups.value = Boolean(result.has_more);
   } catch (err) {
     if (requestVersion !== groupsRequestVersion) {
       return;
     }
-
     if (initialLoad) {
       groupsError.value = err.message;
     } else {
@@ -531,7 +506,6 @@ async function loadGroups(reset = false) {
   } finally {
     if (requestVersion === groupsRequestVersion) {
       loadingGroups.value = false;
-
       loadingMoreGroups.value = false;
     }
   }
@@ -541,10 +515,8 @@ watch(searchQuery, (value) => {
   if (searchDebounceTimer) {
     clearTimeout(searchDebounceTimer);
   }
-
   searchDebounceTimer = setTimeout(async () => {
     debouncedSearchQuery.value = value.trim();
-
     await loadGroups(true);
   }, 300);
 });
@@ -552,32 +524,24 @@ watch(searchQuery, (value) => {
 async function clearSearch() {
   if (searchDebounceTimer) {
     clearTimeout(searchDebounceTimer);
-
     searchDebounceTimer = null;
   }
-
   searchQuery.value = "";
-
   debouncedSearchQuery.value = "";
-
   await loadGroups(true);
 }
 
 function observeGroupsTrigger(element) {
   if (groupsObserver) {
     groupsObserver.disconnect();
-
     groupsObserver = null;
   }
-
   if (!element) {
     return;
   }
-
   groupsObserver = new IntersectionObserver(
     (entries) => {
       const entry = entries[0];
-
       if (
         entry.isIntersecting &&
         hasMoreGroups.value &&
@@ -593,7 +557,6 @@ function observeGroupsTrigger(element) {
       threshold: 0,
     },
   );
-
   groupsObserver.observe(element);
 }
 
@@ -605,7 +568,6 @@ async function loadMyInvitations() {
   try {
     loadingInvitations.value = true;
     invitationsError.value = "";
-
     myInvitations.value = await apiRequest("/group-invitations");
   } catch (err) {
     invitationsError.value = err.message;
@@ -618,20 +580,15 @@ async function acceptInvitation(invitation) {
   try {
     changingInvitationId.value = invitation.id;
     invitationsError.value = "";
-
     await apiRequest(`/group-invitations/${invitation.id}/accept`, {
       method: "POST",
     });
-
     myInvitations.value = myInvitations.value.filter(
       (item) => item.id !== invitation.id,
     );
-
     const group = groups.value.find((item) => item.id === invitation.group_id);
-
     if (group) {
       group.membership_status = "member";
-
       group.member_count += 1;
     }
   } catch (err) {
@@ -645,17 +602,13 @@ async function declineInvitation(invitation) {
   try {
     changingInvitationId.value = invitation.id;
     invitationsError.value = "";
-
     await apiRequest(`/group-invitations/${invitation.id}/decline`, {
       method: "POST",
     });
-
     myInvitations.value = myInvitations.value.filter(
       (item) => item.id !== invitation.id,
     );
-
     const group = groups.value.find((item) => item.id === invitation.group_id);
-
     if (group && group.membership_status === "invited") {
       group.membership_status = "none";
     }
@@ -669,13 +622,10 @@ async function declineInvitation(invitation) {
 async function requestJoinGroup(group) {
   try {
     changingGroupId.value = group.id;
-
     groupsError.value = "";
-
     const result = await apiRequest(`/groups/${group.id}/join-request`, {
       method: "POST",
     });
-
     group.membership_status = result.status || "pending";
   } catch (err) {
     groupsError.value = err.message;
@@ -687,13 +637,10 @@ async function requestJoinGroup(group) {
 async function cancelJoinRequest(group) {
   try {
     changingGroupId.value = group.id;
-
     groupsError.value = "";
-
     await apiRequest(`/groups/${group.id}/cancel-join-request`, {
       method: "POST",
     });
-
     group.membership_status = "none";
   } catch (err) {
     groupsError.value = err.message;
@@ -716,10 +663,8 @@ function closeCreateGroupModal() {
   if (creatingGroup.value) {
     return;
   }
-
   createGroupModalOpen.value = false;
   createError.value = "";
-
   resetCreateGroupForm();
 }
 
@@ -727,7 +672,6 @@ async function createGroup() {
   try {
     creatingGroup.value = true;
     createError.value = "";
-
     await apiRequest("/groups", {
       method: "POST",
 
@@ -736,19 +680,14 @@ async function createGroup() {
         description: newGroup.value.description,
       }),
     });
-
     resetCreateGroupForm();
-
     createGroupModalOpen.value = false;
-
     if (searchDebounceTimer) {
       clearTimeout(searchDebounceTimer);
       searchDebounceTimer = null;
     }
-
     searchQuery.value = "";
     debouncedSearchQuery.value = "";
-
     await loadGroups(true);
   } catch (err) {
     createError.value = err.message;
@@ -757,16 +696,13 @@ async function createGroup() {
   }
 }
 
-
 onMounted(async () => {
   await Promise.all([loadGroups(true), loadMyInvitations()]);
 });
-
 onBeforeUnmount(() => {
   if (searchDebounceTimer) {
     clearTimeout(searchDebounceTimer);
   }
-
   if (groupsObserver) {
     groupsObserver.disconnect();
   }

@@ -129,8 +129,6 @@
         Loading users...
       </div>
 
-      
-
       <p v-else-if="usersError" class="users-error">
         {{ usersError }}
       </p>
@@ -260,8 +258,6 @@
           Loading more users...
         </div>
 
-        
-
         <div v-else-if="usersLoadMoreError" class="users-load-more-error">
           <span>
             {{ usersLoadMoreError }}
@@ -300,23 +296,16 @@
 <script setup>
 import { onBeforeUnmount, computed, onMounted, watch, ref } from "vue";
 import { apiRequest } from "../services/api";
-
 import UserAvatar from "../components/UserAvatar.vue";
-
 const users = ref([]);
 const followRequests = ref([]);
-
 const loadingUsers = ref(false);
 const loadingRequests = ref(false);
-
 const usersError = ref("");
 const requestsError = ref("");
-
 const searchQuery = ref("");
 const debouncedSearchQuery = ref("");
-
 const USERS_PAGE_SIZE = 20;
-
 const userOffset = ref(0);
 const hasMoreUsers = ref(true);
 const loadingMoreUsers = ref(false);
@@ -324,25 +313,20 @@ const usersLoadMoreError = ref("");
 const usersLoadTrigger = ref(null);
 let usersObserver = null;
 let searchDebounceTimer = null;
-
 let usersRequestVersion = 0;
 const changingUserId = ref(null);
 const changingRequestId = ref(null);
-
 const filteredUsers = computed(() => {
   const query = searchQuery.value.trim().toLowerCase();
-
   if (!query) {
     return users.value;
   }
-
   return users.value.filter((user) => {
     const firstName = user.first_name || "";
     const lastName = user.last_name || "";
     const fullName = `${firstName} ${lastName}`;
     const nickname = user.nickname || "";
     const email = user.email || "";
-
     return [firstName, lastName, fullName, nickname, email].some((value) =>
       value.toLowerCase().includes(query),
     );
@@ -354,15 +338,12 @@ function observeUsersTrigger(element) {
     usersObserver.disconnect();
     usersObserver = null;
   }
-
   if (!element) {
     return;
   }
-
   usersObserver = new IntersectionObserver(
     (entries) => {
       const entry = entries[0];
-
       if (
         entry.isIntersecting &&
         hasMoreUsers.value &&
@@ -378,7 +359,6 @@ function observeUsersTrigger(element) {
       threshold: 0,
     },
   );
-
   usersObserver.observe(element);
 }
 
@@ -389,7 +369,6 @@ async function loadUsers(reset = false) {
   ) {
     return;
   }
-
   if (reset) {
     usersRequestVersion += 1;
     users.value = [];
@@ -397,10 +376,8 @@ async function loadUsers(reset = false) {
     hasMoreUsers.value = true;
     usersLoadMoreError.value = "";
   }
-
   const requestVersion = usersRequestVersion;
   const initialLoad = userOffset.value === 0;
-
   try {
     if (initialLoad) {
       loadingUsers.value = true;
@@ -409,22 +386,17 @@ async function loadUsers(reset = false) {
       loadingMoreUsers.value = true;
       usersLoadMoreError.value = "";
     }
-
     const params = new URLSearchParams();
     params.set("limit", String(USERS_PAGE_SIZE));
     params.set("offset", String(userOffset.value));
-
     if (debouncedSearchQuery.value) {
       params.set("q", debouncedSearchQuery.value);
     }
-
     const result = await apiRequest(`/users?${params.toString()}`);
     if (requestVersion !== usersRequestVersion) {
       return;
     }
-
     const incomingUsers = result.users || [];
-
     if (reset) {
       users.value = incomingUsers;
     } else {
@@ -433,16 +405,13 @@ async function loadUsers(reset = false) {
         ...incomingUsers.filter((user) => !existingIDs.has(user.id)),
       );
     }
-
     userOffset.value =
       result.next_offset ?? userOffset.value + incomingUsers.length;
-
     hasMoreUsers.value = Boolean(result.has_more);
   } catch (err) {
     if (requestVersion !== usersRequestVersion) {
       return;
     }
-
     if (initialLoad) {
       usersError.value = err.message;
     } else {
@@ -472,13 +441,10 @@ async function followUser(userId) {
   try {
     changingUserId.value = userId;
     usersError.value = "";
-
     const result = await apiRequest(`/users/${userId}/follow`, {
       method: "POST",
     });
-
     const user = users.value.find((item) => item.id === userId);
-
     if (user) {
       user.follow_status = result.status;
     }
@@ -493,13 +459,10 @@ async function unfollowUser(userId) {
   try {
     changingUserId.value = userId;
     usersError.value = "";
-
     await apiRequest(`/users/${userId}/unfollow`, {
       method: "POST",
     });
-
     const user = users.value.find((item) => item.id === userId);
-
     if (user) {
       user.follow_status = "none";
       if (!user.is_public) {
@@ -517,11 +480,9 @@ async function acceptRequest(requestId) {
   try {
     changingRequestId.value = requestId;
     requestsError.value = "";
-
     await apiRequest(`/follow-requests/${requestId}/accept`, {
       method: "POST",
     });
-
     followRequests.value = followRequests.value.filter(
       (request) => request.id !== requestId,
     );
@@ -536,11 +497,9 @@ async function declineRequest(requestId) {
   try {
     changingRequestId.value = requestId;
     requestsError.value = "";
-
     await apiRequest(`/follow-requests/${requestId}/decline`, {
       method: "POST",
     });
-
     followRequests.value = followRequests.value.filter(
       (request) => request.id !== requestId,
     );
@@ -556,7 +515,6 @@ async function clearSearch() {
     clearTimeout(searchDebounceTimer);
     searchDebounceTimer = null;
   }
-
   searchQuery.value = "";
   debouncedSearchQuery.value = "";
   await loadUsers(true);
@@ -565,28 +523,23 @@ async function clearSearch() {
 watch(usersLoadTrigger, (element) => {
   observeUsersTrigger(element);
 });
-
 watch(searchQuery, (value) => {
   if (searchDebounceTimer) {
     clearTimeout(searchDebounceTimer);
   }
-
   searchDebounceTimer = setTimeout(async () => {
     debouncedSearchQuery.value = value.trim();
     await loadUsers(true);
   }, 300);
 });
-
 onMounted(async () => {
   await Promise.all([loadUsers(true), loadFollowRequests()]);
 });
-
 onBeforeUnmount(() => {
   if (usersObserver) {
     usersObserver.disconnect();
     usersObserver = null;
   }
-
   if (searchDebounceTimer) {
     clearTimeout(searchDebounceTimer);
     searchDebounceTimer = null;

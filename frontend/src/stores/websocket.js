@@ -1,7 +1,5 @@
 import { defineStore } from "pinia";
-
 let socket = null;
-
 export const useWebSocketStore = defineStore("websocket", {
   state: () => ({
     connected: false,
@@ -24,11 +22,9 @@ export const useWebSocketStore = defineStore("websocket", {
     isUserOnline: (state) => {
       return (userID) => {
         const id = Number(userID);
-
         if (!id) {
           return false;
         }
-
         return Boolean(state.onlineUserIDs[id]);
       };
     },
@@ -58,41 +54,32 @@ export const useWebSocketStore = defineStore("websocket", {
   actions: {
     setPresenceSnapshot(data) {
       const userIDs = data?.user_ids;
-
       if (!Array.isArray(userIDs)) {
         return;
       }
-
       const onlineUsers = {};
-
       for (const userID of userIDs) {
         const id = Number(userID);
-
         if (id > 0) {
           onlineUsers[id] = true;
         }
       }
-
       this.onlineUserIDs = onlineUsers;
     },
 
     updatePresence(data) {
       const userID = Number(data?.user_id);
-
       if (!userID) {
         return;
       }
-
       if (data.online) {
         this.onlineUserIDs[userID] = true;
         return;
       }
-
       delete this.onlineUserIDs[userID];
     },
     connect(userID) {
       this.currentUserID = userID;
-
       if (
         socket &&
         (socket.readyState === WebSocket.OPEN ||
@@ -100,22 +87,15 @@ export const useWebSocketStore = defineStore("websocket", {
       ) {
         return;
       }
-
       this.error = "";
-
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-
       const url = `${protocol}//${window.location.host}/api/ws`;
-
       socket = new WebSocket(url);
-
       socket.onopen = () => {
         console.log("GLOBAL WS OPEN");
-
         this.connected = true;
         this.error = "";
       };
-
       socket.onclose = (event) => {
         console.log(
           "GLOBAL WS CLOSED:",
@@ -123,19 +103,14 @@ export const useWebSocketStore = defineStore("websocket", {
           event.reason,
           event.wasClean,
         );
-
         this.connected = false;
         this.onlineUserIDs = {};
-
         socket = null;
       };
-
       socket.onerror = (event) => {
         console.error("GLOBAL WS ERROR:", event);
-
         this.error = "WebSocket connection error";
       };
-
       socket.onmessage = (event) => {
         this.handleMessage(event);
       };
@@ -143,48 +118,37 @@ export const useWebSocketStore = defineStore("websocket", {
 
     handleMessage(event) {
       let parsed;
-
       try {
         parsed = JSON.parse(event.data);
       } catch {
         this.error = "Received invalid WebSocket data";
         return;
       }
-
       if (parsed.type === "error") {
         this.error = parsed.error || "WebSocket error";
-
         return;
       }
-
       if (parsed.type === "presence_snapshot") {
         this.setPresenceSnapshot(parsed.data);
         return;
       }
-
       if (parsed.type === "presence") {
         this.updatePresence(parsed.data);
         return;
       }
-
       this.trackPrivateUnread(parsed);
       this.trackGroupUnread(parsed);
-
       this.lastEvent = parsed;
       this.eventVersion++;
     },
 
     send(data) {
       this.error = "";
-
       if (!socket || socket.readyState !== WebSocket.OPEN) {
         this.error = "WebSocket is not connected";
-
         return false;
       }
-
       socket.send(JSON.stringify(data));
-
       return true;
     },
 
@@ -193,16 +157,12 @@ export const useWebSocketStore = defineStore("websocket", {
         socket.close();
         socket = null;
       }
-
       this.connected = false;
       this.lastEvent = null;
-
       this.currentUserID = null;
       this.onlineUserIDs = {};
-
       this.activePrivateChatUserID = null;
       this.activeGroupID = null;
-
       this.privateUnreadByUser = {};
       this.groupUnreadByGroup = {};
     },
@@ -211,27 +171,20 @@ export const useWebSocketStore = defineStore("websocket", {
       if (!event || event.type !== "private_message" || !event.data) {
         return;
       }
-
       const message = event.data;
-
       if (message.sender_id === this.currentUserID) {
         return;
       }
-
       if (message.sender_id === this.activePrivateChatUserID) {
         return;
       }
-
       const senderID = message.sender_id;
-
       const currentCount = this.privateUnreadByUser[senderID] || 0;
-
       this.privateUnreadByUser[senderID] = currentCount + 1;
     },
 
     setActivePrivateChat(userID) {
       this.activePrivateChatUserID = userID;
-
       if (userID) {
         this.clearPrivateUnread(userID);
       }
@@ -249,27 +202,20 @@ export const useWebSocketStore = defineStore("websocket", {
       if (!event || event.type !== "group_message" || !event.data) {
         return;
       }
-
       const message = event.data;
-
       if (message.sender_id === this.currentUserID) {
         return;
       }
-
       if (message.group_id === this.activeGroupID) {
         return;
       }
-
       const groupID = message.group_id;
-
       const currentCount = this.groupUnreadByGroup[groupID] || 0;
-
       this.groupUnreadByGroup[groupID] = currentCount + 1;
     },
 
     setActiveGroup(groupID) {
       this.activeGroupID = groupID;
-
       if (groupID) {
         this.clearGroupUnread(groupID);
       }

@@ -95,7 +95,7 @@ func listPostsHandler(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	
+
 	query := fmt.Sprintf(`
 		SELECT
 			posts.id,

@@ -729,7 +729,6 @@ func listUsersHandler(w http.ResponseWriter, r *http.Request) {
 	searchPattern :=
 		"%" + searchQuery + "%"
 
-
 	rows, err := db.Query(`
 		SELECT
 			users.id,

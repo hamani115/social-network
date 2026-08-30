@@ -194,8 +194,6 @@
             </button>
           </div>
 
-          
-
           <p v-if="error" class="register-error" role="alert">
             {{ error }}
           </p>
@@ -225,18 +223,15 @@
 
 <script setup>
 import UserAvatar from "../components/UserAvatar.vue";
-
 import { onUnmounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/auth";
 import { todayDateInput } from "../utils/date";
-
 const router = useRouter();
 const auth = useAuthStore();
 const error = ref("");
 const submitting = ref(false);
 const showPassword = ref(false);
-
 const form = reactive({
   email: "",
   password: "",
@@ -246,57 +241,40 @@ const form = reactive({
   nickname: "",
   about_me: "",
 });
-
 const avatar = ref(null);
 const avatarPreview = ref("");
-
 const today = todayDateInput();
 
 function clearAvatarPreview() {
   if (avatarPreview.value) {
     URL.revokeObjectURL(avatarPreview.value);
-
     avatarPreview.value = "";
   }
 }
 
 function handleAvatarChange(event) {
   const file = event.target.files?.[0];
-
   error.value = "";
-
   clearAvatarPreview();
-
   if (!file) {
     avatar.value = null;
-
     return;
   }
-
   const allowedTypes = ["image/jpeg", "image/png", "image/gif"];
-
   if (!allowedTypes.includes(file.type)) {
     avatar.value = null;
-
     event.target.value = "";
-
     error.value = "Avatar must be a JPG, PNG or GIF image";
-
     return;
   }
-
   avatar.value = file;
-
   avatarPreview.value = URL.createObjectURL(file);
 }
 
 function removeAvatar() {
   avatar.value = null;
-
   clearAvatarPreview();
-
   const input = document.getElementById("register-avatar");
-
   if (input) {
     input.value = "";
   }
@@ -306,14 +284,10 @@ async function submitRegister() {
   if (submitting.value) {
     return;
   }
-
   try {
     submitting.value = true;
-
     error.value = "";
-
     await auth.register(form, avatar.value);
-
     await router.push({
       path: "/login",
 

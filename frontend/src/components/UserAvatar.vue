@@ -14,7 +14,6 @@
 
 <script setup>
 import { nameInitials } from "../utils/avatar";
-
 defineProps({
   avatarPath: {
     type: String,

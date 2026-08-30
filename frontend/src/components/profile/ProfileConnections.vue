@@ -94,40 +94,30 @@
 
 <script setup>
 import { computed, ref, watch } from "vue";
-
 import { apiRequest } from "../../services/api";
-
 const props = defineProps({
   profile: {
     type: Object,
     required: true,
   },
 });
-
 const followers = ref([]);
 const following = ref([]);
-
 const loadingFollowLists = ref(false);
 const followListsError = ref("");
-
 const showAllConnections = ref(false);
 const connectionPreviewLimit = 4;
-
 const activeConnectionsTab = ref("followers");
-
 const activeConnections = computed(() => {
   if (activeConnectionsTab.value === "followers") {
     return followers.value;
   }
-
   return following.value;
 });
-
 const visibleConnections = computed(() => {
   if (showAllConnections.value) {
     return activeConnections.value;
   }
-
   return activeConnections.value.slice(0, connectionPreviewLimit);
 });
 
@@ -135,18 +125,14 @@ async function loadFollowLists() {
   if (!props.profile?.id) {
     return;
   }
-
   try {
     loadingFollowLists.value = true;
     followListsError.value = "";
-
     followers.value = await apiRequest(`/users/${props.profile.id}/followers`);
-
     following.value = await apiRequest(`/users/${props.profile.id}/following`);
   } catch (err) {
     followers.value = [];
     following.value = [];
-
     followListsError.value = err.message;
   } finally {
     loadingFollowLists.value = false;
@@ -162,9 +148,7 @@ function selectConnectionsTab(tab) {
 
 function connectionInitials(user) {
   const firstInitial = user.first_name?.charAt(0) || "";
-
   const lastInitial = user.last_name?.charAt(0) || "";
-
   return (firstInitial + lastInitial).toUpperCase();
 }
 
