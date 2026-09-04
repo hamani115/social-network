@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <div class="modal-overlay" @click.self="closeEditModal">
+    <div class="modal-overlay" @click.self="closeModal">
       <section
         class="edit-profile-modal"
         role="dialog"

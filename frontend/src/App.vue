@@ -127,22 +127,6 @@ async function handleLogout() {
   }
 }
 
-watch(
-  () => auth.user,
-  async (user) => {
-    if (user) {
-      websocket.connect(user.id);
-      await notifications.fetchNotifications();
-    } else {
-      notifications.clear();
-      websocket.disconnect();
-    }
-  },
-  {
-    immediate: true,
-  },
-);
-
 async function handleGlobalApiError(event) {
   const detail = event?.detail;
   if (!detail) {
@@ -190,6 +174,33 @@ async function handleGlobalApiError(event) {
     });
   }
 }
+
+watch(
+  () => auth.user,
+  async (user) => {
+    if (user) {
+      websocket.connect(user.id);
+      await notifications.fetchNotifications();
+    } else {
+      notifications.clear();
+      websocket.disconnect();
+    }
+  },
+  {
+    immediate: true,
+  },
+);
+
+watch(
+  () => websocket.eventVersion,
+  () => {
+    const event = websocket.lastEvent;
+
+    if (event?.type === "notification" && event.data) {
+      notifications.addNotification(event.data);
+    }
+  },
+);
 
 onMounted(() => {
   window.addEventListener("api-global-error", handleGlobalApiError);

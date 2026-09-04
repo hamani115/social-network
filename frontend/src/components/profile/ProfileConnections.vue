@@ -50,9 +50,11 @@
             :to="`/profiles/${user.id}`"
             class="connection-user-link"
           >
-            <div class="connection-avatar">
-              {{ connectionInitials(user) }}
-            </div>
+            <UserAvatar
+              :avatar-path="user.avatar_path"
+              :name="`${user.first_name} ${user.last_name}`"
+              class="connection-avatar"
+            />
 
             <div class="connection-user-info">
               <strong>
@@ -95,6 +97,9 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import { apiRequest } from "../../services/api";
+
+import UserAvatar from "../UserAvatar.vue";
+
 const props = defineProps({
   profile: {
     type: Object,
@@ -143,16 +148,6 @@ function selectConnectionsTab(tab) {
   activeConnectionsTab.value = tab;
   showAllConnections.value = false;
 }
-
-// Helpers
-
-function connectionInitials(user) {
-  const firstInitial = user.first_name?.charAt(0) || "";
-  const lastInitial = user.last_name?.charAt(0) || "";
-  return (firstInitial + lastInitial).toUpperCase();
-}
-
-// Reload when a different/new profile is received
 
 watch(
   () => props.profile,

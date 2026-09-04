@@ -91,7 +91,7 @@
       </div>
     </section>
 
-    <section class="groups-directory">
+    <section   class="groups-directory">
       <div class="groups-section-heading">
         <h2>Browse groups</h2>
       </div>
@@ -426,7 +426,6 @@ function membershipLabel(status) {
     case "invited":
       return "Invited";
     default:
-      console.log("STATUS", status);
       return "";
   }
 }

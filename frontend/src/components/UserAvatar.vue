@@ -38,9 +38,9 @@ defineProps({
 .user-avatar-component img {
   width: 100%;
   height: 100%;
-
   display: block;
-
+  margin: 0;
+  border-radius: 0;
   object-fit: cover;
 }
 

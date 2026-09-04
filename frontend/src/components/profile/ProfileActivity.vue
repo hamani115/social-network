@@ -28,16 +28,11 @@
             :to="`/profiles/${profile.id}`"
             class="post-author-avatar-link"
           >
-            <img
-              v-if="profile.avatar_path"
-              :src="profile.avatar_path"
-              :alt="`${post.author_name}'s avatar`"
+            <UserAvatar
+              :avatar-path="profile.avatar_path"
+              :name="`${profile.first_name} ${profile.last_name}`"
               class="post-author-avatar"
             />
-
-            <div v-else class="post-author-avatar post-author-placeholder">
-              {{ userInitials(profile) }}
-            </div>
           </router-link>
 
           <div class="post-author-info">
@@ -82,6 +77,9 @@
 import { ref, watch } from "vue";
 import { apiRequest } from "../../services/api";
 import { formatDate } from "../../utils/date";
+
+import UserAvatar from "../UserAvatar.vue";
+
 const props = defineProps({
   profile: {
     type: Object,
@@ -108,12 +106,6 @@ async function loadProfilePosts() {
   }
 }
 
-function userInitials(user) {
-  const firstInitial = user.first_name?.charAt(0) || "";
-  const lastInitial = user.last_name?.charAt(0) || "";
-  return (firstInitial + lastInitial).toUpperCase();
-}
-
 function privacyLabel(privacy) {
   switch (privacy) {
     case "public":
@@ -128,7 +120,7 @@ function privacyLabel(privacy) {
 }
 
 watch(
-  () => props.profile.id,
+  () => props.profile,
   () => {
     loadProfilePosts();
   },
@@ -243,19 +235,6 @@ watch(
   object-fit: cover;
 
   background: #1f2937;
-}
-
-.post-author-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  color: #eaf3ff;
-
-  background: linear-gradient(135deg, #4f9cff, #2867d6);
-
-  font-size: 14px;
-  font-weight: 700;
 }
 
 .post-author-info {

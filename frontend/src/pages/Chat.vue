@@ -332,17 +332,6 @@ const filteredChatUsers = computed(() => {
   });
 });
 
-function displayUserName(user) {
-  if (!user) {
-    return "";
-  }
-  const fullName = `${user.first_name} ${user.last_name}`;
-  if (user.nickname) {
-    return `${fullName} (${user.nickname})`;
-  }
-  return fullName;
-}
-
 async function loadChatUsers() {
   try {
     loadingUsers.value = true;

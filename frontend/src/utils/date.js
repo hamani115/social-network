@@ -15,6 +15,7 @@ export function formatDateTime(value) {
     minute: "2-digit",
   });
 }
+
 export function formatDate(value) {
   if (!value) {
     return "";
@@ -29,6 +30,7 @@ export function formatDate(value) {
     day: "numeric",
   });
 }
+
 // date of birth
 export function formatDateOfBirth(value) {
   if (!value) {
