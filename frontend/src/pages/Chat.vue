@@ -23,8 +23,6 @@
           />
         </div>
 
-        <!-- Loading -->
-
         <div v-if="loadingUsers" class="chat-users-state">
           <span class="loading-spinner"></span>
 
@@ -35,7 +33,6 @@
           {{ usersError }}
         </p>
 
-        <!-- NO USERS -->
         <div v-else-if="chatUsers.length === 0" class="chat-users-empty">
           <strong> No chats available </strong>
 
@@ -44,7 +41,6 @@
           </p>
         </div>
 
-        <!-- NO RESULTS -->
         <div
           v-else-if="filteredChatUsers.length === 0"
           class="chat-users-empty"
@@ -102,26 +98,26 @@
       </aside>
 
       <!-- CONVERSATION -->
-      <section class="conversation-panel">
-        <div v-if="!selectedUser" class="conversation-placeholder">
-          <div class="conversation-placeholder-icon">
+      <section class="chat-panel">
+        <div v-if="!selectedUser" class="chat-placeholder">
+          <div class="chat-placeholder-icon">
             <i class="fa-solid fa-comments" aria-hidden="true"></i>
           </div>
 
-          <h2>Select a conversation</h2>
+          <h2>Select a chat</h2>
         </div>
 
         <template v-else>
-          <header class="conversation-header">
+          <header class="chat-header">
             <router-link
               :to="`/profiles/${selectedUser.id}`"
-              class="conversation-user"
+              class="chat-user"
             >
-              <div class="conversation-avatar-wrap">
+              <div class="chat-avatar-wrap">
                 <UserAvatar
                   :avatar-path="selectedUser.avatar_path"
                   :name="`${selectedUser.first_name} ${selectedUser.last_name}`"
-                  class="conversation-avatar"
+                  class="chat-avatar"
                 />
 
                 <span
@@ -132,7 +128,7 @@
                 ></span>
               </div>
 
-              <div class="conversation-user-info">
+              <div class="chat-user-info">
                 <h2>
                   {{ selectedUser.first_name }}
                   {{ selectedUser.last_name }}
@@ -142,13 +138,13 @@
                   {{ selectedUser.nickname }}
                 </span>
 
-                <span v-if="selectedUserTyping" class="conversation-typing">
+                <span v-if="selectedUserTyping" class="chat-typing">
                   typing...
                 </span>
 
                 <span
                   v-else
-                  class="conversation-presence"
+                  class="chat-presence"
                   :class="{
                     online: websocket.isUserOnline(selectedUser.id),
                   }"
@@ -175,8 +171,6 @@
               class="messages"
               @scroll.passive="handleMessagesScroll"
             >
-              <!-- LOADING -->
-
               <div
                 v-if="loadingMessages && messages.length === 0"
                 class="messages-loading"
@@ -186,8 +180,6 @@
                 Loading messages...
               </div>
 
-              <!-- LOADING ORDER -->
-
               <div v-if="loadingOlderMessages" class="messages-loading-older">
                 <span class="loading-spinner"></span>
 
@@ -196,14 +188,14 @@
 
               <p
                 v-else-if="!hasMoreMessages && messages.length > 0"
-                class="conversation-beginning"
+                class="chat-beginning"
               >
-                Beginning of conversation
+                Beginning of chat
               </p>
 
               <div
                 v-if="!loadingMessages && messages.length === 0"
-                class="conversation-empty"
+                class="chat-empty"
               >
                 <div>
                   <i class="fa-solid fa-comments" aria-hidden="true"></i>
@@ -546,12 +538,12 @@ function handleIncomingPrivateMessage(message) {
   if (!currentUserID || !selectedUserID) {
     return;
   }
-  const belongsToOpenConversation =
+  const belongsToOpenChat =
     (message.sender_id === currentUserID &&
       message.receiver_id === selectedUserID) ||
     (message.sender_id === selectedUserID &&
       message.receiver_id === currentUserID);
-  if (!belongsToOpenConversation) {
+  if (!belongsToOpenChat) {
     return;
   }
   const alreadyExists = messages.value.some(
@@ -753,7 +745,7 @@ onUnmounted(() => {
 }
 
 .chat-user-avatar-wrap,
-.conversation-avatar-wrap {
+.chat-avatar-wrap {
   position: relative;
 
   width: 40px;
@@ -818,7 +810,7 @@ onUnmounted(() => {
 }
 
 .chat-user-avatar,
-.conversation-avatar {
+.chat-avatar {
   width: 40px;
   height: 40px;
 
@@ -918,7 +910,7 @@ onUnmounted(() => {
   margin: 0;
 }
 
-.conversation-panel {
+.chat-panel {
   min-width: 0;
 
   display: flex;
@@ -927,22 +919,22 @@ onUnmounted(() => {
   padding: 0;
 }
 
-.conversation-user-info {
+.chat-user-info {
   min-width: 0;
 
   display: flex;
   flex-direction: column;
 }
 
-.conversation-presence {
+.chat-presence {
   color: var(--text-muted);
 }
 
-.conversation-presence.online {
+.chat-presence.online {
   color: var(--success);
 }
 
-.conversation-placeholder {
+.chat-placeholder {
   min-height: 650px;
 
   display: flex;
@@ -957,7 +949,7 @@ onUnmounted(() => {
   text-align: center;
 }
 
-.conversation-placeholder-icon {
+.chat-placeholder-icon {
   width: 58px;
   height: 58px;
 
@@ -973,19 +965,19 @@ onUnmounted(() => {
   font-size: 23px;
 }
 
-.conversation-placeholder h2 {
+.chat-placeholder h2 {
   margin-bottom: 5px;
 
   color: var(--text);
 }
 
-.conversation-user .conversation-typing {
+.chat-user .chat-typing {
   color: var(--primary);
 
   font-weight: 650;
 }
 
-.conversation-header {
+.chat-header {
   min-height: 72px;
 
   display: flex;
@@ -999,7 +991,7 @@ onUnmounted(() => {
   border-bottom: 1px solid var(--border-soft);
 }
 
-.conversation-user {
+.chat-user {
   min-width: 0;
 
   display: flex;
@@ -1010,13 +1002,13 @@ onUnmounted(() => {
   color: inherit;
 }
 
-.conversation-user h2 {
+.chat-user h2 {
   margin: 0;
 
   font-size: 15px;
 }
 
-.conversation-user span {
+.chat-user span {
   color: var(--text-muted);
 
   font-size: 10px;
@@ -1057,7 +1049,7 @@ onUnmounted(() => {
   font-size: 10px;
 }
 
-.conversation-beginning {
+.chat-beginning {
   margin: 0 0 16px;
 
   color: var(--text-muted);
@@ -1067,7 +1059,7 @@ onUnmounted(() => {
   text-align: center;
 }
 
-.conversation-empty {
+.chat-empty {
   min-height: 430px;
 
   display: flex;
@@ -1080,7 +1072,7 @@ onUnmounted(() => {
   text-align: center;
 }
 
-.conversation-empty > div {
+.chat-empty > div {
   width: 48px;
   height: 48px;
 
@@ -1096,7 +1088,7 @@ onUnmounted(() => {
   font-size: 19px;
 }
 
-.conversation-empty h3 {
+.chat-empty h3 {
   margin-bottom: 4px;
 
   color: var(--text);
@@ -1238,7 +1230,7 @@ onUnmounted(() => {
     max-height: 230px;
   }
 
-  .conversation-placeholder {
+  .chat-placeholder {
     min-height: 360px;
   }
 

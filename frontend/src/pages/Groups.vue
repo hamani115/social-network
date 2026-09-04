@@ -91,15 +91,12 @@
       </div>
     </section>
 
-    <!-- BROWSE GROUPS -->
-
     <section class="groups-directory">
       <div class="groups-section-heading">
         <h2>Browse groups</h2>
       </div>
 
       <!-- SEARCH -->
-
       <div class="group-search">
         <span class="group-search-icon" aria-hidden="true">
           <i class="fa-solid fa-magnifying-glass"></i>
@@ -128,8 +125,6 @@
         </button>
       </div>
 
-      <!-- LOADING -->
-
       <div v-if="loadingGroups" class="groups-state">
         <span class="loading-spinner"></span>
 
@@ -139,8 +134,6 @@
       <p v-else-if="groupsError" class="groups-error">
         {{ groupsError }}
       </p>
-
-      <!-- SEARCH EMPTY -->
 
       <div
         v-else-if="groups.length === 0 && debouncedSearchQuery"
@@ -155,8 +148,6 @@
         <p>No groups match "{{ debouncedSearchQuery }}"</p>
       </div>
 
-      <!-- NO GROUPS -->
-
       <div v-else-if="groups.length === 0" class="groups-empty">
         <div class="groups-empty-icon">
           <i class="fa-solid fa-user-group" aria-hidden="true"></i>
@@ -165,7 +156,7 @@
         <h3>No groups yet</h3>
       </div>
 
-      <!-- GROUP CARDS -->
+      <!-- GROUPS -->
 
       <div v-else class="groups-grid">
         <article v-for="group in groups" :key="group.id" class="group-card">
@@ -230,8 +221,6 @@
               }}
             </button>
 
-            <!-- PENDING -->
-
             <button
               v-else-if="group.membership_status === 'pending'"
               type="button"
@@ -244,8 +233,6 @@
               }}
             </button>
 
-            <!-- INVITED -->
-
             <span
               v-else-if="group.membership_status === 'invited'"
               class="group-invited-message"
@@ -254,7 +241,6 @@
             </span>
 
             <!-- MEMBER + OWNER -->
-
             <router-link
               v-else
               :to="`/groups/${group.id}`"
@@ -267,7 +253,6 @@
       </div>
 
       <!-- PAGINATION -->
-
       <div v-if="groups.length > 0" class="groups-pagination">
         <div v-if="loadingMoreGroups" class="groups-load-more">
           <span class="loading-spinner"></span>
@@ -305,8 +290,6 @@
         </p>
       </div>
     </section>
-
-    <!-- CREATE GROUP MODAL -->
 
     <Teleport to="body">
       <div

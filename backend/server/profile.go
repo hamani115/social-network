@@ -134,7 +134,7 @@ func getProfileHandler(w http.ResponseWriter, r *http.Request, profileUserID int
 	} else {
 		profile.Email = ""
 		profile.DateOfBirth = ""
-		profile.AvatarPath = ""
+		// profile.AvatarPath = ""
 		profile.Nickname = ""
 		profile.AboutMe = ""
 	}
@@ -227,6 +227,7 @@ func listProfilePostsHandler(w http.ResponseWriter, r *http.Request, profileUser
 			posts.user_id,
 			users.first_name || ' ' || users.last_name AS author_name,
 			COALESCE(users.nickname, '') AS author_nickname,
+			COALESCE(users.avatar_path, '') AS author_avatar_path,
 			posts.content,
 			COALESCE(posts.image_path, '') AS image_path,
 			posts.privacy,
@@ -275,6 +276,7 @@ func listProfilePostsHandler(w http.ResponseWriter, r *http.Request, profileUser
 			&post.UserID,
 			&post.AuthorName,
 			&post.AuthorNickname,
+			&post.AuthorAvatarPath,
 			&post.Content,
 			&post.ImagePath,
 			&post.Privacy,
@@ -297,78 +299,33 @@ func listProfilePostsHandler(w http.ResponseWriter, r *http.Request, profileUser
 	writeJSON(w, http.StatusOK, posts)
 }
 
-func updateMyProfileHandler(
-	w http.ResponseWriter,
-	r *http.Request,
-	currentUserID int,
-) {
-	r.Body = http.MaxBytesReader(
-		w,
-		r.Body,
-		maxUploadSize,
-	)
+func updateMyProfileHandler(w http.ResponseWriter, r *http.Request, currentUserID int) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
 
 	err := r.ParseMultipartForm(maxUploadSize)
 	if err != nil {
-		errorJSON(
-			w,
-			"could not read profile form",
-			http.StatusBadRequest,
-		)
+		errorJSON(w, "could not read profile form", http.StatusBadRequest)
 		return
 	}
 
-	email := strings.TrimSpace(
-		r.FormValue("email"),
-	)
+	email := strings.TrimSpace(r.FormValue("email"))
 
-	firstName := strings.TrimSpace(
-		r.FormValue("first_name"),
-	)
+	firstName := strings.TrimSpace(r.FormValue("first_name"))
+	lastName := strings.TrimSpace(r.FormValue("last_name"))
+	dateOfBirth := strings.TrimSpace(r.FormValue("date_of_birth"))
+	nickname := strings.TrimSpace(r.FormValue("nickname"))
+	aboutMe := strings.TrimSpace(r.FormValue("about_me"))
+	isPublicRaw := strings.TrimSpace(r.FormValue("is_public"))
 
-	lastName := strings.TrimSpace(
-		r.FormValue("last_name"),
-	)
-
-	dateOfBirth := strings.TrimSpace(
-		r.FormValue("date_of_birth"),
-	)
-
-	nickname := strings.TrimSpace(
-		r.FormValue("nickname"),
-	)
-
-	aboutMe := strings.TrimSpace(
-		r.FormValue("about_me"),
-	)
-
-	isPublicRaw := strings.TrimSpace(
-		r.FormValue("is_public"),
-	)
-
-	if email == "" ||
-		firstName == "" ||
-		lastName == "" ||
-		dateOfBirth == "" {
-
-		errorJSON(
-			w,
-			"email, first name, last name and date of birth are required",
-			http.StatusBadRequest,
-		)
+	if email == "" || firstName == "" || lastName == "" || dateOfBirth == "" {
+		errorJSON(w, "email, first name, last name and date of birth are required", http.StatusBadRequest)
 		return
 	}
 
-	isPublic, err := strconv.ParseBool(
-		isPublicRaw,
-	)
+	isPublic, err := strconv.ParseBool(isPublicRaw)
 
 	if err != nil {
-		errorJSON(
-			w,
-			"invalid profile visibility",
-			http.StatusBadRequest,
-		)
+		errorJSON(w, "invalid profile visibility", http.StatusBadRequest)
 		return
 	}
 
@@ -386,26 +343,15 @@ func updateMyProfileHandler(
 		WHERE email = ?
 		  AND id != ?
 		LIMIT 1
-	`,
-		email,
-		currentUserID,
-	).Scan(&existingUserID)
+	`, email, currentUserID).Scan(&existingUserID)
 
 	if err == nil {
-		errorJSON(
-			w,
-			"email is already in use",
-			http.StatusConflict,
-		)
+		errorJSON(w, "email is already in use", http.StatusConflict)
 		return
 	}
 
 	if err != sql.ErrNoRows {
-		errorJSON(
-			w,
-			"could not check email",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "could not check email", http.StatusInternalServerError)
 		return
 	}
 
@@ -419,34 +365,18 @@ func updateMyProfileHandler(
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			errorJSON(
-				w,
-				"user not found",
-				http.StatusNotFound,
-			)
+			errorJSON(w, "user not found", http.StatusNotFound)
 			return
 		}
 
-		errorJSON(
-			w,
-			"could not read current avatar",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "could not read current avatar", http.StatusInternalServerError)
 		return
 	}
 
-	avatarPath, err := saveUploadedImage(
-		r,
-		"avatar",
-		"uploads/avatars",
-	)
+	avatarPath, err := saveUploadedImage(r, "avatar", "uploads/avatars")
 
 	if err != nil {
-		errorJSON(
-			w,
-			err.Error(),
-			http.StatusBadRequest,
-		)
+		errorJSON(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -489,30 +419,19 @@ func updateMyProfileHandler(
 	)
 
 	if err != nil {
-		errorJSON(
-			w,
-			"could not update profile",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "could not update profile", http.StatusInternalServerError)
 		return
 	}
 
 	keepNewAvatar = true
 
-	if avatarPath != "" &&
-		oldAvatarPath != "" &&
-		oldAvatarPath != avatarPath {
-
+	if avatarPath != "" && oldAvatarPath != "" && oldAvatarPath != avatarPath {
 		removeUploadedImage(oldAvatarPath)
 	}
 
-	writeJSON(
-		w,
-		http.StatusOK,
-		map[string]string{
-			"message": "profile updated successfully",
-		},
-	)
+	writeJSON(w, http.StatusOK, map[string]string{
+		"message": "profile updated successfully",
+	})
 }
 
 func canViewUserProfile(currentUserID int, targetUserID int) (bool, error) {

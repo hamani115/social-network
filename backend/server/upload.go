@@ -91,23 +91,12 @@ func removeUploadedImage(imagePath string) {
 		return
 	}
 
-	filePath := strings.TrimPrefix(
-		imagePath,
-		"/",
-	)
-
+	filePath := strings.TrimPrefix(imagePath, "/")
 	filePath = filepath.Clean(filePath)
-
 	slashPath := filepath.ToSlash(filePath)
 
-	if !strings.HasPrefix(
-		slashPath,
-		"uploads/",
-	) {
-		log.Printf(
-			"refusing to remove invalid upload path: %s",
-			imagePath,
-		)
+	if !strings.HasPrefix(slashPath, "uploads/") {
+		log.Printf("refusing to remove invalid upload path: %s", imagePath)
 		return
 	}
 
@@ -115,11 +104,6 @@ func removeUploadedImage(imagePath string) {
 
 	if err != nil &&
 		!os.IsNotExist(err) {
-
-		log.Printf(
-			"could not remove uploaded file %s: %v",
-			imagePath,
-			err,
-		)
+		log.Printf("could not remove uploaded file %s: %v", imagePath, err)
 	}
 }

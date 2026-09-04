@@ -9,7 +9,7 @@
       </span>
     </div>
 
-    <!-- Search -->
+    <!-- SEARCH -->
     <div class="group-member-search">
       <span class="group-member-search-icon" aria-hidden="true">
         <i class="fa-solid fa-magnifying-glass"></i>
@@ -33,8 +33,6 @@
       </button>
     </div>
 
-    <!-- Loading -->
-
     <div v-if="loadingGroupMembers" class="group-section-state">
       <span class="loading-spinner"></span>
 
@@ -45,7 +43,7 @@
       {{ groupMembersError }}
     </p>
 
-    <!-- No results -->
+    <!-- NO RESULTS -->
     <div
       v-else-if="groupMembers.length === 0 && debouncedMemberSearchQuery"
       class="group-members-empty"
@@ -55,7 +53,7 @@
       <p>No group members match "{{ debouncedMemberSearchQuery }}"</p>
     </div>
 
-    <!-- Members -->
+    <!-- MEMBERS -->
     <div v-else class="group-member-list">
       <article
         v-for="member in groupMembers"
@@ -91,7 +89,7 @@
         </span>
       </article>
 
-      <!-- Pagination -->
+      <!-- PAGINATION -->
       <div class="group-member-pagination">
         <div v-if="loadingMoreGroupMembers" class="group-member-loading-more">
           <span class="loading-spinner"></span>
@@ -127,7 +125,7 @@
       </div>
     </div>
 
-    <!-- Invite -->
+    <!-- INVITE -->
     <section class="group-invite-section">
       <div class="group-invite-heading">
         <h3>Invite someone</h3>
@@ -164,7 +162,7 @@
         Searching...
       </div>
 
-      <!-- No results -->
+      <!-- NO RESULTS -->
 
       <p
         v-else-if="debouncedInviteSearchQuery && inviteCandidates.length === 0"

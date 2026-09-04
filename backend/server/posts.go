@@ -31,18 +31,10 @@ func listPostsHandler(w http.ResponseWriter, r *http.Request) {
 
 	if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
 
-		parsedLimit, err :=
-			strconv.Atoi(rawLimit)
+		parsedLimit, err := strconv.Atoi(rawLimit)
 
-		if err != nil ||
-			parsedLimit <= 0 ||
-			parsedLimit > 50 {
-
-			errorJSON(
-				w,
-				"invalid post limit",
-				http.StatusBadRequest,
-			)
+		if err != nil || parsedLimit <= 0 || parsedLimit > 50 {
+			errorJSON(w, "invalid post limit", http.StatusBadRequest)
 			return
 		}
 
@@ -53,17 +45,10 @@ func listPostsHandler(w http.ResponseWriter, r *http.Request) {
 
 	if rawOffset := r.URL.Query().Get("offset"); rawOffset != "" {
 
-		parsedOffset, err :=
-			strconv.Atoi(rawOffset)
+		parsedOffset, err := strconv.Atoi(rawOffset)
 
-		if err != nil ||
-			parsedOffset < 0 {
-
-			errorJSON(
-				w,
-				"invalid post offset",
-				http.StatusBadRequest,
-			)
+		if err != nil || parsedOffset < 0 {
+			errorJSON(w, "invalid post offset", http.StatusBadRequest)
 			return
 		}
 
@@ -71,8 +56,7 @@ func listPostsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// SORTING
-	sortValue :=
-		r.URL.Query().Get("sort")
+	sortValue := r.URL.Query().Get("sort")
 
 	if sortValue == "" {
 		sortValue = "newest"
@@ -88,11 +72,7 @@ func listPostsHandler(w http.ResponseWriter, r *http.Request) {
 		orderDirection = "ASC"
 
 	default:
-		errorJSON(
-			w,
-			"invalid post sort",
-			http.StatusBadRequest,
-		)
+		errorJSON(w, "invalid post sort", http.StatusBadRequest)
 		return
 	}
 
@@ -100,34 +80,19 @@ func listPostsHandler(w http.ResponseWriter, r *http.Request) {
 		SELECT
 			posts.id,
 			posts.user_id,
-			users.first_name || ' ' ||
-				users.last_name
-				AS author_name,
-			COALESCE(
-				users.nickname,
-				''
-			) AS author_nickname,
-			COALESCE(
-				users.avatar_path,
-				''
-			) AS author_avatar_path,
+			users.first_name || ' ' || users.last_name AS author_name,
+			COALESCE(users.nickname, '') AS author_nickname,
+			COALESCE(users.avatar_path, '') AS author_avatar_path,
 			posts.content,
-			COALESCE(
-				posts.image_path,
-				''
-			) AS image_path,
+			COALESCE(posts.image_path, '') AS image_path,
 			posts.privacy,
 			posts.created_at
 		FROM posts
-
 		JOIN users
 			ON users.id = posts.user_id
-
 		WHERE (
 			posts.privacy = 'public'
-
 			OR posts.user_id = ?
-
 			OR (
 				posts.privacy = 'followers'
 				AND EXISTS (
@@ -135,52 +100,31 @@ func listPostsHandler(w http.ResponseWriter, r *http.Request) {
 					FROM followers
 					WHERE
 						followers.follower_id = ?
-						AND
-						followers.following_id =
-							posts.user_id
+						AND followers.following_id = posts.user_id
 				)
 			)
-
 			OR (
 				posts.privacy = 'private'
 				AND EXISTS (
 					SELECT 1
 					FROM post_allowed_users
 					WHERE
-						post_allowed_users.post_id =
-							posts.id
-						AND
-						post_allowed_users.user_id = ?
+						post_allowed_users.post_id = posts.id
+						AND post_allowed_users.user_id = ?
 				)
 			)
 		)
-
 		ORDER BY
 			posts.created_at %s,
 			posts.id %s
-
 		LIMIT ?
 		OFFSET ?
-	`,
-		orderDirection,
-		orderDirection,
-	)
+	`, orderDirection, orderDirection)
 
-	rows, err := db.Query(
-		query,
-		userID,
-		userID,
-		userID,
-		limit+1,
-		offset,
-	)
+	rows, err := db.Query(query, userID, userID, userID, limit+1, offset)
 
 	if err != nil {
-		errorJSON(
-			w,
-			"could not load posts",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "could not load posts", http.StatusInternalServerError)
 		return
 	}
 
@@ -204,48 +148,29 @@ func listPostsHandler(w http.ResponseWriter, r *http.Request) {
 		)
 
 		if err != nil {
-			errorJSON(
-				w,
-				"could not read post data",
-				http.StatusInternalServerError,
-			)
+			errorJSON(w, "could not read post data", http.StatusInternalServerError)
 			return
 		}
 
-		posts = append(
-			posts,
-			post,
-		)
+		posts = append(posts, post)
 	}
 
 	if err := rows.Err(); err != nil {
-		errorJSON(
-			w,
-			"error while reading posts",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "error while reading posts", http.StatusInternalServerError)
 		return
 	}
 
-	hasMore :=
-		len(posts) > limit
+	hasMore := len(posts) > limit
 
 	if hasMore {
-		posts =
-			posts[:limit]
+		posts = posts[:limit]
 	}
 
-	writeJSON(
-		w,
-		http.StatusOK,
-		map[string]interface{}{
-			"posts": posts,
-
-			"has_more": hasMore,
-
-			"next_offset": offset + len(posts),
-		},
-	)
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"posts":       posts,
+		"has_more":    hasMore,
+		"next_offset": offset + len(posts),
+	})
 }
 
 func createPostHandler(w http.ResponseWriter, r *http.Request) {
@@ -323,96 +248,57 @@ func createPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	tx, err := db.Begin()
 	if err != nil {
-		errorJSON(
-			w,
-			"could not start transaction",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "could not start transaction", http.StatusInternalServerError)
 		return
 	}
 
 	defer tx.Rollback()
 
 	result, err := tx.Exec(`
-	INSERT INTO posts (
-		user_id,
-		content,
-		image_path,
-		privacy
-	)
-	VALUES (?, ?, ?, ?)
-`,
-		userID,
-		content,
-		imagePath,
-		privacy,
-	)
+		INSERT INTO posts (
+			user_id,
+			content,
+			image_path,
+			privacy
+		)
+		VALUES (?, ?, ?, ?)
+	`, userID, content, imagePath, privacy)
 
 	if err != nil {
-		errorJSON(
-			w,
-			"could not create post",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "could not create post", http.StatusInternalServerError)
 		return
 	}
 
 	postID, err := result.LastInsertId()
 	if err != nil {
-		errorJSON(
-			w,
-			"could not read post id",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "could not read post id", http.StatusInternalServerError)
 		return
 	}
 
 	if privacy == "private" {
-		err = savePostAllowedUsersTx(
-			tx,
-			int(postID),
-			userID,
-			allowedUserIDs,
-		)
+		err = savePostAllowedUsersTx(tx, int(postID), userID, allowedUserIDs)
 
 		if err != nil {
-			errorJSON(
-				w,
-				err.Error(),
-				http.StatusBadRequest,
-			)
+			errorJSON(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		errorJSON(
-			w,
-			"could not create post",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "could not create post", http.StatusInternalServerError)
 		return
 	}
 
 	keepUploadedImage = true
 
-	writeJSON(
-		w,
-		http.StatusCreated,
-		map[string]interface{}{
-			"message": "post created successfully",
-			"post_id": postID,
-		},
-	)
+	writeJSON(w, http.StatusCreated, map[string]interface{}{
+		"message": "post created successfully",
+		"post_id": postID,
+	})
 }
 
-func savePostAllowedUsersTx(
-	tx *sql.Tx,
-	postID int,
-	ownerID int,
-	allowedUserIDs []int,
-) error {
+func savePostAllowedUsersTx(tx *sql.Tx, postID int, ownerID int, allowedUserIDs []int) error {
 	if len(allowedUserIDs) == 0 {
 		return nil
 	}
@@ -430,20 +316,14 @@ func savePostAllowedUsersTx(
 			FROM followers
 			WHERE follower_id = ?
 			  AND following_id = ?
-		`,
-			allowedUserID,
-			ownerID,
-		).Scan(&followerCount)
+		`, allowedUserID, ownerID).Scan(&followerCount)
 
 		if err != nil {
 			return err
 		}
 
 		if followerCount == 0 {
-			return fmt.Errorf(
-				"selected user %d is not your follower",
-				allowedUserID,
-			)
+			return fmt.Errorf("selected user %d is not your follower", allowedUserID)
 		}
 
 		_, err = tx.Exec(`
@@ -452,10 +332,7 @@ func savePostAllowedUsersTx(
 				user_id
 			)
 			VALUES (?, ?)
-		`,
-			postID,
-			allowedUserID,
-		)
+		`, postID, allowedUserID)
 
 		if err != nil {
 			return err

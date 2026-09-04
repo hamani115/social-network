@@ -35,7 +35,6 @@ func authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 
 		ctx := r.Context()
 		ctx = contextWithUserID(ctx, userID)
-
 		next(w, r.WithContext(ctx))
 	}
 }

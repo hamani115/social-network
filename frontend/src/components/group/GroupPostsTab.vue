@@ -30,8 +30,6 @@
       </div>
     </div>
 
-    <!-- Loading -->
-
     <div v-if="loadingGroupPosts" class="group-section-state">
       <span class="loading-spinner"></span>
 
@@ -46,7 +44,7 @@
       <h3>No posts yet</h3>
     </div>
 
-    <!-- Posts -->
+    <!-- POSTS -->
 
     <div v-else class="group-post-list">
       <article
@@ -76,7 +74,7 @@
           </div>
         </header>
 
-        <!-- Content -->
+        <!-- CONTENT -->
 
         <p class="group-post-content">
           {{ post.content }}
@@ -90,7 +88,7 @@
           />
         </div>
 
-        <!-- Comments -->
+        <!-- COMMENTS -->
 
         <button
           type="button"
@@ -240,7 +238,7 @@
         </section>
       </article>
 
-      <!-- Pagination -->
+      <!-- PAGINATION -->
 
       <div class="group-post-pagination">
         <div v-if="loadingMoreGroupPosts" class="group-post-loading-more">

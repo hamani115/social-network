@@ -74,16 +74,7 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 			about_me
 		)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`,
-		email,
-		string(hash),
-		firstName,
-		lastName,
-		dateOfBirth,
-		avatarPath,
-		nickname,
-		aboutMe,
-	)
+	`, email, string(hash), firstName, lastName, dateOfBirth, avatarPath, nickname, aboutMe)
 
 	if err != nil {
 		errorJSON(w, "could not create user, email may already exist", http.StatusBadRequest)
@@ -92,11 +83,9 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 
 	keepAvatar = true
 
-	writeJSON(w, http.StatusCreated,
-		map[string]string{
-			"message": "user registered successfully",
-		},
-	)
+	writeJSON(w, http.StatusCreated, map[string]string{
+		"message": "user registered successfully",
+	})
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {

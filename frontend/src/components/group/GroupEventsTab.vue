@@ -11,7 +11,7 @@
       </button>
     </div>
 
-    <!-- Upcoming + Past Events-->
+    <!-- UPCOMING + PAST EVENTS-->
     <div class="event-scope-tabs">
       <button
         type="button"
@@ -53,7 +53,7 @@
       </h3>
     </div>
 
-    <!-- Events -->
+    <!-- EVENTS -->
     <div v-else class="group-events-list">
       <article
         v-for="event in groupEvents"
@@ -162,7 +162,7 @@
         </div>
       </article>
 
-      <!-- Pagination -->
+      <!-- PAGINATION -->
       <div class="group-events-pagination">
         <div v-if="loadingMoreGroupEvents" class="group-events-loading-more">
           <span class="loading-spinner"></span>

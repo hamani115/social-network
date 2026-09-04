@@ -23,7 +23,6 @@
           </button>
         </header>
 
-        <!-- FORM -->
         <form class="edit-profile-form" @submit.prevent="updateProfile">
           <div class="modal-body">
             <div class="edit-field">

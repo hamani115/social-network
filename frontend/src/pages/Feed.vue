@@ -43,8 +43,6 @@
             </div>
           </div>
 
-          <!-- LOADING -->
-
           <div v-if="loading" class="feed-state">
             <span class="loading-spinner"></span>
 
@@ -290,8 +288,6 @@
           </article>
 
           <div v-if="posts.length > 0" class="feed-pagination">
-            <!-- LOADING MORE -->
-
             <div v-if="loadingMorePosts" class="feed-load-more">
               <span class="loading-spinner"></span>
 
@@ -311,8 +307,6 @@
                 Try again
               </button>
             </div>
-
-            <!-- Load more trigger -->
 
             <div
               v-else-if="hasMorePosts"

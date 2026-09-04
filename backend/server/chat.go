@@ -16,22 +16,9 @@ func canPrivateChat(userAID, userBID int) (bool, error) {
 	err := db.QueryRow(`
 		SELECT COUNT(*)
 		FROM followers
-		WHERE
-			(
-				follower_id = ?
-				AND following_id = ?
-			)
-			OR
-			(
-				follower_id = ?
-				AND following_id = ?
-			)
-	`,
-		userAID,
-		userBID,
-		userBID,
-		userAID,
-	).Scan(&count)
+		WHERE (follower_id = ? AND following_id = ?)
+			OR (follower_id = ? AND following_id = ?)
+	`, userAID, userBID, userBID, userAID).Scan(&count)
 
 	if err != nil {
 		return false, err
@@ -60,16 +47,8 @@ func chatUsersHandler(w http.ResponseWriter, r *http.Request) {
 		  AND EXISTS (
 			  SELECT 1
 			  FROM followers
-			  WHERE
-				  (
-					  followers.follower_id = ?
-					  AND followers.following_id = users.id
-				  )
-				  OR
-				  (
-					  followers.follower_id = users.id
-					  AND followers.following_id = ?
-				  )
+			  WHERE (followers.follower_id = ? AND followers.following_id = users.id)
+				  OR (followers.follower_id = users.id AND followers.following_id = ?)
 		  )
 		ORDER BY users.first_name, users.last_name
 	`, currentUserID, currentUserID, currentUserID)
@@ -85,20 +64,10 @@ func chatUsersHandler(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var user ChatUserResponse
 
-		err := rows.Scan(
-			&user.ID,
-			&user.FirstName,
-			&user.LastName,
-			&user.Nickname,
-			&user.AvatarPath,
-		)
+		err := rows.Scan(&user.ID, &user.FirstName, &user.LastName, &user.Nickname, &user.AvatarPath)
 
 		if err != nil {
-			errorJSON(
-				w,
-				"could not read chat user",
-				http.StatusInternalServerError,
-			)
+			errorJSON(w, "could not read chat user", http.StatusInternalServerError)
 			return
 		}
 
@@ -106,11 +75,7 @@ func chatUsersHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := rows.Err(); err != nil {
-		errorJSON(
-			w,
-			"error while reading chat users",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "error while reading chat users", http.StatusInternalServerError)
 		return
 	}
 
@@ -155,69 +120,38 @@ func listPrivateMessagesHandler(w http.ResponseWriter, r *http.Request, otherUse
 		SELECT COUNT(*)
 		FROM users
 		WHERE id = ?
-	`,
-		otherUserID,
-	).Scan(&userCount)
+	`, otherUserID).Scan(&userCount)
 
 	if err != nil {
-		errorJSON(
-			w,
-			"could not check user",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "could not check user", http.StatusInternalServerError)
 		return
 	}
 
 	if userCount == 0 {
-		errorJSON(
-			w,
-			"user not found",
-			http.StatusNotFound,
-		)
+		errorJSON(w, "user not found", http.StatusNotFound)
 		return
 	}
 
-	allowed, err :=
-		canPrivateChat(
-			currentUserID,
-			otherUserID,
-		)
+	allowed, err := canPrivateChat(currentUserID, otherUserID)
 
 	if err != nil {
-		errorJSON(
-			w,
-			"could not check chat permission",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "could not check chat permission", http.StatusInternalServerError)
 		return
 	}
 
 	if !allowed {
-		errorJSON(
-			w,
-			"you cannot chat with this user",
-			http.StatusForbidden,
-		)
+		errorJSON(w, "you cannot chat with this user", http.StatusForbidden)
 		return
 	}
 
 	limit := 30
 
-	if rawLimit :=
-		r.URL.Query().Get("limit"); rawLimit != "" {
+	if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
 
-		parsedLimit, err :=
-			strconv.Atoi(rawLimit)
+		parsedLimit, err := strconv.Atoi(rawLimit)
 
-		if err != nil ||
-			parsedLimit <= 0 ||
-			parsedLimit > 100 {
-
-			errorJSON(
-				w,
-				"invalid message limit",
-				http.StatusBadRequest,
-			)
+		if err != nil || parsedLimit <= 0 || parsedLimit > 100 {
+			errorJSON(w, "invalid message limit", http.StatusBadRequest)
 			return
 		}
 
@@ -226,20 +160,12 @@ func listPrivateMessagesHandler(w http.ResponseWriter, r *http.Request, otherUse
 
 	beforeID := 0
 
-	if rawBefore :=
-		r.URL.Query().Get("before_id"); rawBefore != "" {
+	if rawBefore := r.URL.Query().Get("before_id"); rawBefore != "" {
 
-		parsedBefore, err :=
-			strconv.Atoi(rawBefore)
+		parsedBefore, err := strconv.Atoi(rawBefore)
 
-		if err != nil ||
-			parsedBefore <= 0 {
-
-			errorJSON(
-				w,
-				"invalid message cursor",
-				http.StatusBadRequest,
-			)
+		if err != nil || parsedBefore <= 0 {
+			errorJSON(w, "invalid message cursor", http.StatusBadRequest)
 			return
 		}
 
@@ -251,149 +177,72 @@ func listPrivateMessagesHandler(w http.ResponseWriter, r *http.Request, otherUse
 			private_messages.id,
 			private_messages.sender_id,
 			private_messages.receiver_id,
-
-			users.first_name || ' ' ||
-				users.last_name
-					AS sender_name,
-
-			COALESCE(
-				users.avatar_path,
-				''
-			) AS sender_avatar_path,
-
+			users.first_name || ' ' || users.last_name AS sender_name,
+			COALESCE(users.avatar_path, '') AS sender_avatar_path,
 			private_messages.content,
 			private_messages.created_at
-
 		FROM private_messages
-
 		JOIN users
-			ON users.id =
-				private_messages.sender_id
-
+			ON users.id = private_messages.sender_id
 		WHERE
 			(
-				(
-					private_messages.sender_id = ?
-					AND
-					private_messages.receiver_id = ?
-				)
-				OR
-				(
-					private_messages.sender_id = ?
-					AND
-					private_messages.receiver_id = ?
-				)
+				(private_messages.sender_id = ? AND private_messages.receiver_id = ?)
+				OR (private_messages.sender_id = ? AND private_messages.receiver_id = ?)
 			)
-
-			AND (
-				? = 0
-				OR
-				private_messages.id < ?
-			)
-
-		ORDER BY
-			private_messages.id DESC
-
+			AND (? = 0 OR private_messages.id < ?)
+		ORDER BY private_messages.id DESC
 		LIMIT ?
-	`,
-		currentUserID,
-		otherUserID,
-		otherUserID,
-		currentUserID,
-
-		beforeID,
-		beforeID,
-
-		limit+1,
-	)
+	`, currentUserID, otherUserID, otherUserID, currentUserID, beforeID, beforeID, limit+1)
 
 	if err != nil {
-		errorJSON(
-			w,
-			"could not load private messages",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "could not load private messages", http.StatusInternalServerError)
 		return
 	}
 
 	defer rows.Close()
 
-	messages :=
-		[]PrivateMessageResponse{}
+	messages := []PrivateMessageResponse{}
 
 	for rows.Next() {
 		var message PrivateMessageResponse
 
-		err := rows.Scan(
-			&message.ID,
-			&message.SenderID,
-			&message.ReceiverID,
-			&message.SenderName,
-			&message.SenderAvatarPath,
-			&message.Content,
-			&message.CreatedAt,
-		)
+		err := rows.Scan(&message.ID, &message.SenderID, &message.ReceiverID, &message.SenderName, &message.SenderAvatarPath, &message.Content, &message.CreatedAt)
 
 		if err != nil {
-			errorJSON(
-				w,
-				"could not read private message",
-				http.StatusInternalServerError,
-			)
+			errorJSON(w, "could not read private message", http.StatusInternalServerError)
 			return
 		}
 
-		messages =
-			append(
-				messages,
-				message,
-			)
+		messages = append(messages, message)
 	}
 
 	if err := rows.Err(); err != nil {
-		errorJSON(
-			w,
-			"error while reading private messages",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "error while reading private messages", http.StatusInternalServerError)
 		return
 	}
 
-	hasMore :=
-		len(messages) > limit
+	hasMore := len(messages) > limit
 
 	if hasMore {
-		messages =
-			messages[:limit]
+		messages = messages[:limit]
 	}
 
-	for i, j :=
-		0, len(messages)-1; i < j; i, j = i+1, j-1 {
+	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
 
-		messages[i],
-			messages[j] =
-			messages[j],
-			messages[i]
+		messages[i], messages[j] = messages[j], messages[i]
 	}
 
 	nextBeforeID := 0
 
 	if len(messages) > 0 {
-		nextBeforeID =
-			messages[0].ID
+		nextBeforeID = messages[0].ID
 	}
 
-	writeJSON(
-		w,
-		http.StatusOK,
-		map[string]interface{}{
-			"messages": messages,
-
-			"has_more": hasMore,
-
-			"next_before_id": nextBeforeID,
-		},
-	)
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"messages":       messages,
+		"has_more":       hasMore,
+		"next_before_id": nextBeforeID,
+	})
 }
 
 func savePrivateMessage(senderID int, receiverID int, content string) (PrivateMessageResponse, error) {
@@ -405,11 +254,7 @@ func savePrivateMessage(senderID int, receiverID int, content string) (PrivateMe
 			content
 		)
 		VALUES (?, ?, ?)
-	`,
-		senderID,
-		receiverID,
-		content,
-	)
+	`, senderID, receiverID, content)
 
 	if err != nil {
 		return PrivateMessageResponse{}, err
@@ -427,23 +272,13 @@ func savePrivateMessage(senderID int, receiverID int, content string) (PrivateMe
 			private_messages.id,
 			private_messages.sender_id,
 			private_messages.receiver_id,
-
-			users.first_name || ' ' ||
-			users.last_name AS sender_name,
-
-			COALESCE(
-				users.avatar_path,
-				''
-			) AS sender_avatar_path,
-
+			users.first_name || ' ' || users.last_name AS sender_name,
+			COALESCE(users.avatar_path, '') AS sender_avatar_path,
 			private_messages.content,
 			private_messages.created_at
-
 		FROM private_messages
-
 		JOIN users
 		  ON users.id = private_messages.sender_id
-
 		WHERE private_messages.id = ?
 	`, messageID).Scan(
 		&message.ID,

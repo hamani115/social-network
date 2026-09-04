@@ -72,7 +72,7 @@
           </span>
         </div>
 
-        <!-- other user profile -->
+        <!-- OTHER USER PROFILE -->
         <div v-if="!profile.is_owner" class="profile-actions">
           <button
             v-if="profile.follow_status === 'none'"
@@ -114,7 +114,7 @@
     </div>
   </section>
 
-  <!-- Private profile -->
+  <!-- PRIVATE PROFILE -->
   <section
     v-if="!profile.can_view_profile && !profile.is_owner"
     class="locked-profile-card"
@@ -127,13 +127,11 @@
       <h2>This profile is private</h2>
 
       <p v-if="profile.follow_status === 'none'">
-        Follow {{ profile.first_name }} to see their profile information,
-        connections, and activity.
+        Follow {{ profile.first_name }} to see their profile information, connections, and activity
       </p>
 
       <p v-else-if="profile.follow_status === 'pending'">
-        Your follow request has been sent. You'll be able to see this profile
-        once the request is accepted.
+        Your follow request has been sent
       </p>
     </div>
 

@@ -8,14 +8,12 @@
       {{ groupMessagesError }}
     </p>
 
-    <!-- Chat -->
     <div class="group-chat-shell">
       <div
         ref="groupMessagesContainer"
         class="group-chat-messages"
         @scroll.passive="handleGroupChatScroll"
       >
-        <!-- loading -->
         <div
           v-if="loadingGroupMessages && groupMessages.length === 0"
           class="group-chat-loading"
@@ -25,7 +23,6 @@
           Loading messages...
         </div>
 
-        <!-- loading older -->
         <div v-if="loadingOlderGroupMessages" class="group-chat-loading-older">
           <span class="loading-spinner"></span>
 
@@ -82,7 +79,7 @@
         </div>
       </div>
 
-      <!-- new message indicator -->
+      <!-- NEW MESSAGE INDICTATOR -->
       <button
         v-if="newGroupMessageCount > 0"
         type="button"
@@ -99,7 +96,7 @@
       </button>
     </div>
 
-    <!-- Message send form -->
+    <!-- MESSAGE FORM -->
     <form class="group-chat-form" @submit.prevent="sendGroupMessage">
       <input
         v-model="groupMessageInput"

@@ -1,13 +1,9 @@
 <template>
   <main class="register-page">
     <div class="register-layout">
-      <!-- INTRO -->
-
       <aside class="register-intro">
         <h1>Create your account!</h1>
       </aside>
-
-      <!-- CARD -->
 
       <section class="register-card">
         <header class="register-card-header">
@@ -15,8 +11,6 @@
         </header>
 
         <form class="register-form" @submit.prevent="submitRegister">
-          <!-- NAME -->
-
           <div class="register-name-grid">
             <div class="register-field">
               <label for="register-first-name"> First name * </label>
@@ -47,8 +41,6 @@
             </div>
           </div>
 
-          <!-- EMAIL -->
-
           <div class="register-field">
             <label for="register-email"> Email * </label>
 
@@ -62,8 +54,6 @@
               :disabled="submitting"
             />
           </div>
-
-          <!-- PASSWORD -->
 
           <div class="register-field">
             <label for="register-password"> Password * </label>
@@ -91,8 +81,6 @@
             </div>
           </div>
 
-          <!-- DOB -->
-
           <div class="register-field">
             <label for="register-date-of-birth"> Date of birth * </label>
 
@@ -106,8 +94,6 @@
               :disabled="submitting"
             />
           </div>
-
-          <!-- NICKNAME -->
 
           <div class="register-field">
             <label for="register-nickname">
@@ -124,8 +110,6 @@
             />
           </div>
 
-          <!-- ABOUT -->
-
           <div class="register-field">
             <label for="register-about">
               About Me
@@ -140,8 +124,6 @@
               :disabled="submitting"
             ></textarea>
           </div>
-
-          <!-- AVATAR -->
 
           <div class="register-field">
             <label for="register-avatar">
@@ -197,8 +179,6 @@
           <p v-if="error" class="register-error" role="alert">
             {{ error }}
           </p>
-
-          <!-- SUBMIT -->
 
           <button
             type="submit"

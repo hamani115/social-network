@@ -1,7 +1,5 @@
 <template>
   <main class="group-detail-page">
-    <!-- LOADING + ERROR -->
-
     <div v-if="loadingGroup" class="group-page-state">
       <span class="loading-spinner"></span>
       Loading group...
@@ -12,8 +10,6 @@
     </p>
 
     <template v-else-if="group">
-      <!-- GROUP HERO -->
-
       <section class="group-hero">
         <div class="group-hero-icon">
           {{ group.title?.charAt(0)?.toUpperCase() || "G" }}
@@ -66,7 +62,7 @@
             </span>
           </div>
 
-          <!-- NON-MEMBER ACTION -->
+          <!-- REQUEST JOIN -->
 
           <div v-if="!isMemberOrOwner" class="group-join-actions">
             <button
@@ -97,8 +93,7 @@
             </div>
           </div>
 
-          <!-- MEMBER ACTION -->
-
+          <!-- LEAVE GROUP -->
           <div
             v-if="group.membership_status === 'member'"
             class="group-member-actions"
@@ -201,7 +196,7 @@
         </button>
       </nav>
 
-      <!-- OVERVIEW -->
+      <!-- ABOUT -->
 
       <section
         v-if="!isMemberOrOwner || activeGroupTab === 'overview'"
@@ -209,7 +204,7 @@
       >
         <div class="group-panel-heading">
           <div>
-            <h2>About this group</h2>
+            <h2>About</h2>
           </div>
         </div>
 
@@ -282,7 +277,6 @@
       />
 
       <!-- MANAGEMENT -->
-
       <section
         v-if="isOwner && activeGroupTab === 'management'"
         class="group-tab-panel"

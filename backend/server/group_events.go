@@ -68,11 +68,7 @@ func createGroupEventHandler(w http.ResponseWriter, r *http.Request, groupID int
 	)
 
 	if err != nil {
-		log.Printf(
-			"group event %d created, but notifications failed: %v",
-			eventID,
-			err,
-		)
+		log.Printf("group event %d created, but notifications failed: %v", eventID, err)
 	}
 
 	writeJSON(w, http.StatusCreated, map[string]interface{}{
@@ -115,40 +111,21 @@ func getMyGroupEventResponse(eventID int, userID int) (string, error) {
 	return response, nil
 }
 
-func listGroupEventsHandler(
-	w http.ResponseWriter,
-	r *http.Request,
-	groupID int,
-) {
-	currentUserID, ok :=
-		requireGroupMember(
-			w,
-			r,
-			groupID,
-		)
+func listGroupEventsHandler(w http.ResponseWriter, r *http.Request, groupID int) {
+	currentUserID, ok := requireGroupMember(w, r, groupID)
 
 	if !ok {
 		return
 	}
 
-	// PAGINATION
 	limit := 10
 
-	if rawLimit :=
-		r.URL.Query().Get("limit"); rawLimit != "" {
+	if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
 
-		parsedLimit, err :=
-			strconv.Atoi(rawLimit)
+		parsedLimit, err := strconv.Atoi(rawLimit)
 
-		if err != nil ||
-			parsedLimit <= 0 ||
-			parsedLimit > 50 {
-
-			errorJSON(
-				w,
-				"invalid event limit",
-				http.StatusBadRequest,
-			)
+		if err != nil || parsedLimit <= 0 || parsedLimit > 50 {
+			errorJSON(w, "invalid event limit", http.StatusBadRequest)
 			return
 		}
 
@@ -157,20 +134,13 @@ func listGroupEventsHandler(
 
 	offset := 0
 
-	if rawOffset :=
-		r.URL.Query().Get("offset"); rawOffset != "" {
+	if rawOffset := r.URL.Query().Get("offset"); rawOffset != "" {
 
-		parsedOffset, err :=
-			strconv.Atoi(rawOffset)
+		parsedOffset, err := strconv.Atoi(rawOffset)
 
-		if err != nil ||
-			parsedOffset < 0 {
+		if err != nil || parsedOffset < 0 {
 
-			errorJSON(
-				w,
-				"invalid event offset",
-				http.StatusBadRequest,
-			)
+			errorJSON(w, "invalid event offset", http.StatusBadRequest)
 			return
 		}
 
@@ -178,12 +148,7 @@ func listGroupEventsHandler(
 	}
 
 	// UPCOMING + PAST
-	scope :=
-		strings.ToLower(
-			strings.TrimSpace(
-				r.URL.Query().Get("scope"),
-			),
-		)
+	scope := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("scope")))
 
 	if scope == "" {
 		scope = "upcoming"
@@ -195,50 +160,28 @@ func listGroupEventsHandler(
 	switch scope {
 
 	case "upcoming":
-		timeCondition =
-			"group_events.event_time >= ?"
-
+		timeCondition = "group_events.event_time >= ?"
 		orderDirection = "ASC"
 
 	case "past":
-		timeCondition =
-			"group_events.event_time < ?"
-
+		timeCondition = "group_events.event_time < ?"
 		orderDirection = "DESC"
 
 	default:
-		errorJSON(
-			w,
-			"invalid event scope",
-			http.StatusBadRequest,
-		)
+		errorJSON(w, "invalid event scope", http.StatusBadRequest)
 		return
 	}
 
-	nowValue :=
-		strings.TrimSpace(
-			r.URL.Query().Get("now"),
-		)
+	nowValue := strings.TrimSpace(r.URL.Query().Get("now"))
 
 	if nowValue == "" {
-		nowValue =
-			time.Now().Format(
-				"2006-01-02 15:04:05",
-			)
+		nowValue = time.Now().Format("2006-01-02 15:04:05")
 	}
 
-	_, err :=
-		time.Parse(
-			"2006-01-02 15:04:05",
-			nowValue,
-		)
+	_, err := time.Parse("2006-01-02 15:04:05", nowValue)
 
 	if err != nil {
-		errorJSON(
-			w,
-			"invalid current time",
-			http.StatusBadRequest,
-		)
+		errorJSON(w, "invalid current time", http.StatusBadRequest)
 		return
 	}
 
@@ -247,108 +190,69 @@ func listGroupEventsHandler(
 			group_events.id,
 			group_events.group_id,
 			group_events.creator_id,
-
 			users.first_name || ' ' ||
 				users.last_name
 				AS creator_name,
-			
-			COALESCE(
-				users.avatar_path,
-				''
-			) AS creator_avatar_path,
-
+			COALESCE(users.avatar_path, '') AS creator_avatar_path,
 			group_events.title,
 			group_events.description,
 			group_events.event_time,
-
 			(
 				SELECT COUNT(*)
 				FROM group_event_responses
 				WHERE
-					group_event_responses.event_id =
-						group_events.id
-					AND
-					group_event_responses.response =
-						'going'
+					group_event_responses.event_id = group_events.id
+					AND group_event_responses.response = 'going'
 			) AS going_count,
-
 			(
 				SELECT COUNT(*)
 				FROM group_event_responses
 				WHERE
-					group_event_responses.event_id =
-						group_events.id
-					AND
-					group_event_responses.response =
-						'not_going'
+					group_event_responses.event_id = group_events.id
+					AND group_event_responses.response = 'not_going'
 			) AS not_going_count,
-
 			COALESCE(
 				(
-					SELECT
-						group_event_responses.response
-
+					SELECT group_event_responses.response
 					FROM group_event_responses
-
 					WHERE
-						group_event_responses.event_id =
-							group_events.id
-						AND
-						group_event_responses.user_id = ?
-
+						group_event_responses.event_id = group_events.id
+						AND group_event_responses.user_id = ?
 					LIMIT 1
 				),
 				'none'
 			) AS my_response,
-
 			group_events.created_at
-
 		FROM group_events
-
 		JOIN users
-			ON users.id =
-				group_events.creator_id
-
+			ON users.id = group_events.creator_id
 		WHERE
 			group_events.group_id = ?
-
 			AND %s
-
 		ORDER BY
 			group_events.event_time %s,
 			group_events.id %s
-
 		LIMIT ?
 		OFFSET ?
-	`,
-		timeCondition,
-		orderDirection,
-		orderDirection,
+	`, timeCondition, orderDirection, orderDirection)
+
+	rows, err := db.Query(
+		query,
+		currentUserID,
+		groupID,
+		nowValue,
+		limit+1,
+		offset,
 	)
 
-	rows, err :=
-		db.Query(
-			query,
-			currentUserID,
-			groupID,
-			nowValue,
-			limit+1,
-			offset,
-		)
-
 	if err != nil {
-		errorJSON(
-			w,
-			"could not load group events",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "could not load group events", http.StatusInternalServerError)
 		return
 	}
 
 	defer rows.Close()
 
-	events :=
-		[]GroupEventResponse{}
+	events := []GroupEventResponse{}
 
 	for rows.Next() {
 		var event GroupEventResponse
@@ -369,46 +273,29 @@ func listGroupEventsHandler(
 		)
 
 		if err != nil {
-			errorJSON(
-				w,
-				"could not read group event data",
-				http.StatusInternalServerError,
-			)
+			errorJSON(w, "could not read group event data", http.StatusInternalServerError)
 			return
 		}
 
-		events =
-			append(events, event)
+		events = append(events, event)
 	}
 
 	if err := rows.Err(); err != nil {
-		errorJSON(
-			w,
-			"error while reading group events",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "error while reading group events", http.StatusInternalServerError)
 		return
 	}
 
-	hasMore :=
-		len(events) > limit
+	hasMore := len(events) > limit
 
 	if hasMore {
-		events =
-			events[:limit]
+		events = events[:limit]
 	}
 
-	writeJSON(
-		w,
-		http.StatusOK,
-		map[string]interface{}{
-			"events": events,
-
-			"has_more": hasMore,
-
-			"next_offset": offset + len(events),
-		},
-	)
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"events":      events,
+		"has_more":    hasMore,
+		"next_offset": offset + len(events),
+	})
 }
 
 func groupEventBelongsToGroup(eventID int, groupID int) (bool, error) {

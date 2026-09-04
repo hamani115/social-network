@@ -66,7 +66,6 @@
           </div>
         </div>
 
-        <!-- Post content -->
         <p class="post-content">
           {{ post.content }}
         </p>

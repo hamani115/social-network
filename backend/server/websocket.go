@@ -27,38 +27,22 @@ var websocketUpgrader = websocket.Upgrader{
 
 		hostname := u.Hostname()
 
-		return hostname == "localhost" ||
-			hostname == "127.0.0.1"
+		return hostname == "localhost" || hostname == "127.0.0.1"
 	},
 }
 
-func websocketHandler(
-	w http.ResponseWriter,
-	r *http.Request,
-) {
+func websocketHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		errorJSON(
-			w,
-			"method not allowed",
-			http.StatusMethodNotAllowed,
-		)
+		errorJSON(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	currentUserID := r.Context().Value(userIDKey).(int)
 
-	conn, err := websocketUpgrader.Upgrade(
-		w,
-		r,
-		nil,
-	)
+	conn, err := websocketUpgrader.Upgrade(w, r, nil)
 
 	if err != nil {
-		log.Printf(
-			"websocket upgrade error for user %d: %v",
-			currentUserID,
-			err,
-		)
+		log.Printf("websocket upgrade error for user %d: %v", currentUserID, err)
 		return
 	}
 
@@ -83,12 +67,7 @@ func (c *Client) writePump() {
 		err := c.conn.WriteJSON(event)
 
 		if err != nil {
-			log.Printf(
-				"websocket write error for user %d: %v",
-				c.userID,
-				err,
-			)
-
+			log.Printf("websocket write error for user %d: %v", c.userID, err)
 			return
 		}
 	}
@@ -111,11 +90,7 @@ func (c *Client) readPump() {
 				websocket.CloseGoingAway,
 				websocket.CloseNormalClosure,
 			) {
-				log.Printf(
-					"websocket read error for user %d: %v",
-					c.userID,
-					err,
-				)
+				log.Printf("websocket read error for user %d: %v", c.userID, err)
 			}
 
 			return
@@ -169,12 +144,7 @@ func (c *Client) handlePrivateMessage(event IncomingWebSocketEvent) {
 
 	exists, err := chatUserExists(event.ReceiverID)
 	if err != nil {
-		log.Printf(
-			"could not check receiver %d: %v",
-			event.ReceiverID,
-			err,
-		)
-
+		log.Printf("could not check receiver %d: %v", event.ReceiverID, err)
 		c.sendError("could not check receiver")
 		return
 	}
@@ -184,17 +154,10 @@ func (c *Client) handlePrivateMessage(event IncomingWebSocketEvent) {
 		return
 	}
 
-	allowed, err := canPrivateChat(
-		c.userID,
-		event.ReceiverID,
-	)
+	allowed, err := canPrivateChat(c.userID, event.ReceiverID)
 
 	if err != nil {
-		log.Printf(
-			"could not check private chat permission: %v",
-			err,
-		)
-
+		log.Printf("could not check private chat permission: %v", err)
 		c.sendError("could not check chat permission")
 		return
 	}
@@ -204,18 +167,10 @@ func (c *Client) handlePrivateMessage(event IncomingWebSocketEvent) {
 		return
 	}
 
-	message, err := savePrivateMessage(
-		c.userID,
-		event.ReceiverID,
-		content,
-	)
+	message, err := savePrivateMessage(c.userID, event.ReceiverID, content)
 
 	if err != nil {
-		log.Printf(
-			"could not save private message: %v",
-			err,
-		)
-
+		log.Printf("could not save private message: %v", err)
 		c.sendError("could not save private message")
 		return
 	}
@@ -236,31 +191,21 @@ func (c *Client) handlePrivateMessage(event IncomingWebSocketEvent) {
 	}
 }
 
-func (c *Client) handlePrivateTyping(
-	event IncomingWebSocketEvent,
-) {
+func (c *Client) handlePrivateTyping(event IncomingWebSocketEvent) {
 	if event.ReceiverID <= 0 {
 		c.sendError("invalid receiver id")
 		return
 	}
 
 	if event.ReceiverID == c.userID {
-		c.sendError(
-			"cannot send typing status to yourself",
-		)
+		c.sendError("cannot send typing status to yourself")
 		return
 	}
 
-	exists, err :=
-		chatUserExists(event.ReceiverID)
+	exists, err := chatUserExists(event.ReceiverID)
 
 	if err != nil {
-		log.Printf(
-			"could not check typing receiver %d: %v",
-			event.ReceiverID,
-			err,
-		)
-
+		log.Printf("could not check typing receiver %d: %v", event.ReceiverID, err)
 		c.sendError("could not check receiver")
 		return
 	}
@@ -270,38 +215,25 @@ func (c *Client) handlePrivateTyping(
 		return
 	}
 
-	allowed, err := canPrivateChat(
-		c.userID,
-		event.ReceiverID,
-	)
+	allowed, err := canPrivateChat(c.userID, event.ReceiverID)
 
 	if err != nil {
-		log.Printf(
-			"could not check private chat permission: %v",
-			err,
-		)
-
-		c.sendError(
-			"could not check chat permission",
-		)
+		log.Printf("could not check private chat permission: %v", err)
+		c.sendError("could not check chat permission")
 		return
 	}
 
 	if !allowed {
-		c.sendError(
-			"you cannot chat with this user",
-		)
+		c.sendError("you cannot chat with this user")
 		return
 	}
 
 	typingEvent := WebSocketEvent{
 		Type: "private_typing",
 		Data: PrivateTypingUpdate{
-			SenderID: c.userID,
-
+			SenderID:   c.userID,
 			ReceiverID: event.ReceiverID,
-
-			Typing: event.Typing,
+			Typing:     event.Typing,
 		},
 	}
 
@@ -312,108 +244,57 @@ func (c *Client) handlePrivateTyping(
 }
 
 func (c *Client) handleGroupMessage(event IncomingWebSocketEvent) {
-	content := strings.TrimSpace(
-		event.Content,
-	)
+	content := strings.TrimSpace(event.Content)
 
 	if event.GroupID <= 0 {
-		c.sendError(
-			"invalid group id",
-		)
+		c.sendError("invalid group id")
 		return
 	}
 
 	if content == "" {
-		c.sendError(
-			"message content is required",
-		)
+		c.sendError("message content is required")
 		return
 	}
 
-	exists, err := groupExists(
-		event.GroupID,
-	)
+	exists, err := groupExists(event.GroupID)
 
 	if err != nil {
-		log.Printf(
-			"could not check group %d: %v",
-			event.GroupID,
-			err,
-		)
-
-		c.sendError(
-			"could not check group",
-		)
-
+		log.Printf("could not check group %d: %v", event.GroupID, err)
+		c.sendError("could not check group")
 		return
 	}
 
 	if !exists {
-		c.sendError(
-			"group not found",
-		)
+		c.sendError("group not found")
 		return
 	}
 
-	member, err := isGroupMember(
-		c.userID,
-		event.GroupID,
-	)
+	member, err := isGroupMember(c.userID, event.GroupID)
 
 	if err != nil {
-		log.Printf(
-			"could not check group membership: %v",
-			err,
-		)
-
-		c.sendError(
-			"could not check group membership",
-		)
-
+		log.Printf("could not check group membership: %v", err)
+		c.sendError("could not check group membership")
 		return
 	}
 
 	if !member {
-		c.sendError(
-			"only group members can send group messages",
-		)
-
+		c.sendError("only group members can send group messages")
 		return
 	}
 
-	message, err := saveGroupMessage(
-		event.GroupID,
-		c.userID,
-		content,
-	)
+	message, err := saveGroupMessage(event.GroupID, c.userID, content)
 
 	if err != nil {
-		log.Printf(
-			"could not save group message: %v",
-			err,
-		)
-
-		c.sendError(
-			"could not save group message",
-		)
-
+		log.Printf("could not save group message: %v", err)
+		c.sendError("could not save group message")
 		return
 	}
 
-	memberIDs, err := getGroupMemberIDs(
-		event.GroupID,
-	)
+	memberIDs, err := getGroupMemberIDs(event.GroupID)
 
 	if err != nil {
-		log.Printf(
-			"could not load group members: %v",
-			err,
-		)
-
-		c.sendError(
-			"message saved but could not deliver it",
-		)
-
+		log.Printf("could not load group members: %v", err)
+		c.sendError("message saved but could not deliver it")
 		return
 	}
 

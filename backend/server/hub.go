@@ -23,8 +23,7 @@ func (h *Hub) run() {
 		select {
 
 		case client := <-h.register:
-			oldClient, wasOnline :=
-				h.clients[client.userID]
+			oldClient, wasOnline := h.clients[client.userID]
 
 			if wasOnline &&
 				oldClient != client {
@@ -44,39 +43,25 @@ func (h *Hub) run() {
 				)
 			}
 
-			log.Printf(
-				"websocket connected: user %d",
-				client.userID,
-			)
+			log.Printf("websocket connected: user %d", client.userID)
 
 		case client := <-h.unregister:
-			currentClient, exists :=
-				h.clients[client.userID]
+			currentClient, exists := h.clients[client.userID]
 
 			if exists &&
 				currentClient == client {
 
-				delete(
-					h.clients,
-					client.userID,
-				)
+				delete(h.clients, client.userID)
 
 				close(client.send)
 
-				h.broadcastPresence(
-					client.userID,
-					false,
-				)
+				h.broadcastPresence(client.userID, false)
 
-				log.Printf(
-					"websocket disconnected: user %d",
-					client.userID,
-				)
+				log.Printf("websocket disconnected: user %d", client.userID)
 			}
 
 		case delivery := <-h.deliver:
-			client, exists :=
-				h.clients[delivery.UserID]
+			client, exists := h.clients[delivery.UserID]
 
 			if !exists {
 				continue
@@ -89,20 +74,11 @@ func (h *Hub) run() {
 				close(client.send)
 				client.conn.Close()
 
-				delete(
-					h.clients,
-					delivery.UserID,
-				)
+				delete(h.clients, delivery.UserID)
 
-				h.broadcastPresence(
-					delivery.UserID,
-					false,
-				)
+				h.broadcastPresence(delivery.UserID, false)
 
-				log.Printf(
-					"websocket disconnected: user %d",
-					delivery.UserID,
-				)
+				log.Printf("websocket disconnected: user %d", delivery.UserID)
 			}
 		}
 	}
@@ -130,10 +106,7 @@ func (h *Hub) sendPresenceSnapshot(client *Client) {
 	}
 }
 
-func (h *Hub) broadcastPresence(
-	userID int,
-	online bool,
-) {
+func (h *Hub) broadcastPresence(userID int, online bool) {
 	event := WebSocketEvent{
 		Type: "presence",
 		Data: PresenceUpdate{

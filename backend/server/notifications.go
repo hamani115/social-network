@@ -51,30 +51,17 @@ func notificationSubroutesHandler(w http.ResponseWriter, r *http.Request) {
 	markNotificationReadHandler(w, r, notificationID)
 }
 
-func listNotificationsHandler(
-	w http.ResponseWriter,
-	r *http.Request,
-) {
-	currentUserID :=
-		r.Context().Value(userIDKey).(int)
+func listNotificationsHandler(w http.ResponseWriter, r *http.Request) {
+	currentUserID := r.Context().Value(userIDKey).(int)
 
 	limit := 20
 
-	if rawLimit :=
-		r.URL.Query().Get("limit"); rawLimit != "" {
+	if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
 
-		parsedLimit, err :=
-			strconv.Atoi(rawLimit)
+		parsedLimit, err := strconv.Atoi(rawLimit)
 
-		if err != nil ||
-			parsedLimit <= 0 ||
-			parsedLimit > 100 {
-
-			errorJSON(
-				w,
-				"invalid notification limit",
-				http.StatusBadRequest,
-			)
+		if err != nil || parsedLimit <= 0 || parsedLimit > 100 {
+			errorJSON(w, "invalid notification limit", http.StatusBadRequest)
 			return
 		}
 
@@ -83,98 +70,62 @@ func listNotificationsHandler(
 
 	offset := 0
 
-	if rawOffset :=
-		r.URL.Query().Get("offset"); rawOffset != "" {
+	if rawOffset := r.URL.Query().Get("offset"); rawOffset != "" {
 
-		parsedOffset, err :=
-			strconv.Atoi(rawOffset)
+		parsedOffset, err := strconv.Atoi(rawOffset)
 
-		if err != nil ||
-			parsedOffset < 0 {
+		if err != nil || parsedOffset < 0 {
 
-			errorJSON(
-				w,
-				"invalid notification offset",
-				http.StatusBadRequest,
-			)
+			errorJSON(w, "invalid notification offset", http.StatusBadRequest)
 			return
 		}
 
 		offset = parsedOffset
 	}
 
-	filter :=
-		strings.ToLower(
-			strings.TrimSpace(
-				r.URL.Query().Get("filter"),
-			),
-		)
+	filter := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("filter")))
 
 	if filter == "" {
 		filter = "all"
 	}
 
-	if filter != "all" &&
-		filter != "unread" {
+	if filter != "all" && filter != "unread" {
 
-		errorJSON(
-			w,
-			"invalid notification filter",
-			http.StatusBadRequest,
-		)
+		errorJSON(w, "invalid notification filter", http.StatusBadRequest)
 		return
 	}
 	rows, err := db.Query(`
 		SELECT
 			id,
 			user_id,
-			COALESCE(
-				requester_id,
-				0
-			),
+			COALESCE(requester_id, 0),
 			type,
 			message,
 			link_path,
 			is_read,
 			created_at
-
 		FROM notifications
-
 		WHERE
 			user_id = ?
-
 			AND (
 				? = 'all'
-				OR
-				is_read = 0
+				OR is_read = 0
 			)
-
 		ORDER BY
 			created_at DESC,
 			id DESC
-
 		LIMIT ?
 		OFFSET ?
-	`,
-		currentUserID,
-		filter,
-		limit+1,
-		offset,
-	)
+	`, currentUserID, filter, limit+1, offset)
 
 	if err != nil {
-		errorJSON(
-			w,
-			"could not load notifications",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "could not load notifications", http.StatusInternalServerError)
 		return
 	}
 
 	defer rows.Close()
 
-	notifications :=
-		[]NotificationResponse{}
+	notifications := []NotificationResponse{}
 
 	for rows.Next() {
 		var notification NotificationResponse
@@ -192,39 +143,24 @@ func listNotificationsHandler(
 		)
 
 		if err != nil {
-			errorJSON(
-				w,
-				"could not read notification data",
-				http.StatusInternalServerError,
-			)
+			errorJSON(w, "could not read notification data", http.StatusInternalServerError)
 			return
 		}
 
-		notification.IsRead =
-			isReadInt == 1
+		notification.IsRead = isReadInt == 1
 
-		notifications =
-			append(
-				notifications,
-				notification,
-			)
+		notifications = append(notifications, notification)
 	}
 
 	if err := rows.Err(); err != nil {
-		errorJSON(
-			w,
-			"error while reading notifications",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "error while reading notifications", http.StatusInternalServerError)
 		return
 	}
 
-	hasMore :=
-		len(notifications) > limit
+	hasMore := len(notifications) > limit
 
 	if hasMore {
-		notifications =
-			notifications[:limit]
+		notifications = notifications[:limit]
 	}
 
 	var unreadCount int
@@ -240,28 +176,16 @@ func listNotificationsHandler(
 	).Scan(&unreadCount)
 
 	if err != nil {
-		errorJSON(
-			w,
-			"could not count unread notifications",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "could not count unread notifications", http.StatusInternalServerError)
 		return
 	}
 
-	writeJSON(
-		w,
-		http.StatusOK,
-		map[string]interface{}{
-			"notifications": notifications,
-
-			"has_more": hasMore,
-
-			"next_offset": offset +
-				len(notifications),
-
-			"unread_count": unreadCount,
-		},
-	)
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"notifications": notifications,
+		"has_more":      hasMore,
+		"next_offset":   offset + len(notifications),
+		"unread_count":  unreadCount,
+	})
 }
 
 func markNotificationReadHandler(w http.ResponseWriter, r *http.Request, notificationID int) {
@@ -324,13 +248,7 @@ func createNotification(userID int, requesterID int, notificationType string, me
 			link_path
 		)
 		VALUES (?, ?, ?, ?, ?)
-	`,
-		userID,
-		requesterID,
-		notificationType,
-		message,
-		linkPath,
-	)
+	`, userID, requesterID, notificationType, message, linkPath)
 
 	if err != nil {
 		return err
@@ -554,16 +472,8 @@ func notifyGroupEventCreated(groupID int, creatorID int, eventTitle string) erro
 			memberID,
 			creatorID,
 			"group_event_created",
-			fmt.Sprintf(
-				"%s created a new event \"%s\" in %s",
-				creatorName,
-				eventTitle,
-				groupTitle,
-			),
-			fmt.Sprintf(
-				"/groups/%d",
-				groupID,
-			),
+			fmt.Sprintf("%s created a new event \"%s\" in %s", creatorName, eventTitle, groupTitle),
+			fmt.Sprintf("/groups/%d", groupID),
 		)
 
 		if err != nil {

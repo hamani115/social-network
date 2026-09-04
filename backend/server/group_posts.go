@@ -53,25 +53,17 @@ func requireGroupMember(w http.ResponseWriter, r *http.Request, groupID int) (in
 }
 
 func listGroupPostsHandler(w http.ResponseWriter, r *http.Request, groupID int) {
-	_, ok :=
-		requireGroupMember(w, r, groupID)
-
-	if !ok {
+	if _, ok := requireGroupMember(w, r, groupID); !ok {
 		return
 	}
 
 	limit := 10
 
-	if rawLimit :=
-		r.URL.Query().Get("limit"); rawLimit != "" {
+	if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
 
-		parsedLimit, err :=
-			strconv.Atoi(rawLimit)
+		parsedLimit, err := strconv.Atoi(rawLimit)
 
-		if err != nil ||
-			parsedLimit <= 0 ||
-			parsedLimit > 50 {
-
+		if err != nil || parsedLimit <= 0 || parsedLimit > 50 {
 			errorJSON(w, "invalid group post limit", http.StatusBadRequest)
 			return
 		}
@@ -81,28 +73,20 @@ func listGroupPostsHandler(w http.ResponseWriter, r *http.Request, groupID int) 
 
 	offset := 0
 
-	if rawOffset :=
-		r.URL.Query().Get("offset"); rawOffset != "" {
+	if rawOffset := r.URL.Query().Get("offset"); rawOffset != "" {
 
-		parsedOffset, err :=
-			strconv.Atoi(rawOffset)
+		parsedOffset, err := strconv.Atoi(rawOffset)
 
-		if err != nil ||
-			parsedOffset < 0 {
+		if err != nil || parsedOffset < 0 {
 
-			errorJSON(
-				w,
-				"invalid group post offset",
-				http.StatusBadRequest,
-			)
+			errorJSON(w, "invalid group post offset", http.StatusBadRequest)
 			return
 		}
 
 		offset = parsedOffset
 	}
 
-	sortValue :=
-		r.URL.Query().Get("sort")
+	sortValue := r.URL.Query().Get("sort")
 
 	if sortValue == "" {
 		sortValue = "newest"
@@ -118,11 +102,7 @@ func listGroupPostsHandler(w http.ResponseWriter, r *http.Request, groupID int) 
 		orderDirection = "ASC"
 
 	default:
-		errorJSON(
-			w,
-			"invalid group post sort",
-			http.StatusBadRequest,
-		)
+		errorJSON(w, "invalid group post sort", http.StatusBadRequest)
 		return
 	}
 
@@ -131,71 +111,33 @@ func listGroupPostsHandler(w http.ResponseWriter, r *http.Request, groupID int) 
 			group_posts.id,
 			group_posts.group_id,
 			group_posts.user_id,
-
-			users.first_name || ' ' ||
-				users.last_name
-				AS author_name,
-
-			COALESCE(
-				users.nickname,
-				''
-			) AS author_nickname,
-
-
-			COALESCE(
-				users.avatar_path,
-				''
-			) AS author_avatar_path,
-
+			users.first_name || ' ' || users.last_name AS author_name,
+			COALESCE(users.nickname, '') AS author_nickname,
+			COALESCE(users.avatar_path, '') AS author_avatar_path,
 			group_posts.content,
-
-			COALESCE(
-				group_posts.image_path,
-				''
-			) AS image_path,
-
+			COALESCE(group_posts.image_path, '') AS image_path,
 			group_posts.created_at
-
 		FROM group_posts
-
-		JOIN users
-			ON users.id =
-				group_posts.user_id
-
-		WHERE
-			group_posts.group_id = ?
-
+		JOIN users ON users.id = group_posts.user_id
+		WHERE group_posts.group_id = ?
 		ORDER BY
 			group_posts.created_at %s,
 			group_posts.id %s
 
 		LIMIT ?
 		OFFSET ?
-	`,
-		orderDirection,
-		orderDirection,
-	)
+	`, orderDirection, orderDirection)
 
-	rows, err := db.Query(
-		query,
-		groupID,
-		limit+1,
-		offset,
-	)
+	rows, err := db.Query(query, groupID, limit+1, offset)
 
 	if err != nil {
-		errorJSON(
-			w,
-			"could not load group posts",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "could not load group posts", http.StatusInternalServerError)
 		return
 	}
 
 	defer rows.Close()
 
-	posts :=
-		[]GroupPostResponse{}
+	posts := []GroupPostResponse{}
 
 	for rows.Next() {
 		var post GroupPostResponse
@@ -213,46 +155,29 @@ func listGroupPostsHandler(w http.ResponseWriter, r *http.Request, groupID int) 
 		)
 
 		if err != nil {
-			errorJSON(
-				w,
-				"could not read group post data",
-				http.StatusInternalServerError,
-			)
+			errorJSON(w, "could not read group post data", http.StatusInternalServerError)
 			return
 		}
 
-		posts =
-			append(posts, post)
+		posts = append(posts, post)
 	}
 
 	if err := rows.Err(); err != nil {
-		errorJSON(
-			w,
-			"error while reading group posts",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "error while reading group posts", http.StatusInternalServerError)
 		return
 	}
 
-	hasMore :=
-		len(posts) > limit
+	hasMore := len(posts) > limit
 
 	if hasMore {
-		posts =
-			posts[:limit]
+		posts = posts[:limit]
 	}
 
-	writeJSON(
-		w,
-		http.StatusOK,
-		map[string]interface{}{
-			"posts": posts,
-
-			"has_more": hasMore,
-
-			"next_offset": offset + len(posts),
-		},
-	)
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"posts":       posts,
+		"has_more":    hasMore,
+		"next_offset": offset + len(posts),
+	})
 }
 
 func createGroupPostHandler(w http.ResponseWriter, r *http.Request, groupID int) {
@@ -379,16 +304,11 @@ func listGroupPostCommentsHandler(w http.ResponseWriter, r *http.Request, groupI
 
 	limit := 5
 
-	if rawLimit :=
-		r.URL.Query().Get("limit"); rawLimit != "" {
+	if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
 
-		parsedLimit, err :=
-			strconv.Atoi(rawLimit)
+		parsedLimit, err := strconv.Atoi(rawLimit)
 
-		if err != nil ||
-			parsedLimit <= 0 ||
-			parsedLimit > 20 {
-
+		if err != nil || parsedLimit <= 0 || parsedLimit > 20 {
 			errorJSON(w, "invalid group comment limit", http.StatusBadRequest)
 			return
 		}
@@ -398,15 +318,11 @@ func listGroupPostCommentsHandler(w http.ResponseWriter, r *http.Request, groupI
 
 	beforeID := 0
 
-	if rawBefore :=
-		r.URL.Query().Get("before_id"); rawBefore != "" {
+	if rawBefore := r.URL.Query().Get("before_id"); rawBefore != "" {
 
-		parsedBefore, err :=
-			strconv.Atoi(rawBefore)
+		parsedBefore, err := strconv.Atoi(rawBefore)
 
-		if err != nil ||
-			parsedBefore <= 0 {
-
+		if err != nil || parsedBefore <= 0 {
 			errorJSON(w, "invalid group comment cursor", http.StatusBadRequest)
 			return
 		}
@@ -419,69 +335,29 @@ func listGroupPostCommentsHandler(w http.ResponseWriter, r *http.Request, groupI
 			group_comments.id,
 			group_comments.group_post_id,
 			group_comments.user_id,
-
-			users.first_name || ' ' ||
-				users.last_name
-				AS author_name,
-
-			COALESCE(
-				users.nickname,
-				''
-			) AS author_nickname,
-
-
-			COALESCE(
-				users.avatar_path,
-				''
-			) AS author_avatar_path,
-
+			users.first_name || ' ' || users.last_name AS author_name,
+			COALESCE(users.nickname, '') AS author_nickname,
+			COALESCE(users.avatar_path, '') AS author_avatar_path,
 			group_comments.content,
-
-			COALESCE(
-				group_comments.image_path,
-				''
-			) AS image_path,
-
+			COALESCE(group_comments.image_path, '') AS image_path,
 			group_comments.created_at
-
 		FROM group_comments
-
-		JOIN users
-			ON users.id =
-				group_comments.user_id
-
+		JOIN users ON users.id = group_comments.user_id
 		WHERE
 			group_comments.group_post_id = ?
-
-			AND (
-				? = 0
-				OR group_comments.id < ?
-			)
-
-		ORDER BY
-			group_comments.id DESC
-
+			AND (? = 0 OR group_comments.id < ?)
+		ORDER BY group_comments.id DESC
 		LIMIT ?
-	`,
-		groupPostID,
-		beforeID,
-		beforeID,
-		limit+1,
-	)
+	`, groupPostID, beforeID, beforeID, limit+1)
 
 	if err != nil {
-		errorJSON(
-			w,
-			"could not load group comments",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "could not load group comments", http.StatusInternalServerError)
 		return
 	}
 
 	defer rows.Close()
 
-	comments :=
-		[]GroupCommentResponse{}
+	comments := []GroupCommentResponse{}
 
 	for rows.Next() {
 		var comment GroupCommentResponse
@@ -499,65 +375,39 @@ func listGroupPostCommentsHandler(w http.ResponseWriter, r *http.Request, groupI
 		)
 
 		if err != nil {
-			errorJSON(
-				w,
-				"could not read group comment data",
-				http.StatusInternalServerError,
-			)
+			errorJSON(w, "could not read group comment data", http.StatusInternalServerError)
 			return
 		}
 
-		comments =
-			append(
-				comments,
-				comment,
-			)
+		comments = append(comments, comment)
 	}
 
 	if err := rows.Err(); err != nil {
-		errorJSON(
-			w,
-			"error while reading group comments",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "error while reading group comments", http.StatusInternalServerError)
 		return
 	}
 
-	hasMore :=
-		len(comments) > limit
+	hasMore := len(comments) > limit
 
 	if hasMore {
-		comments =
-			comments[:limit]
+		comments = comments[:limit]
 	}
 
-	for i, j :=
-		0, len(comments)-1; i < j; i, j = i+1, j-1 {
-
-		comments[i],
-			comments[j] =
-			comments[j],
-			comments[i]
+	for i, j := 0, len(comments)-1; i < j; i, j = i+1, j-1 {
+		comments[i], comments[j] = comments[j], comments[i]
 	}
 
 	nextBeforeID := 0
 
 	if len(comments) > 0 {
-		nextBeforeID =
-			comments[0].ID
+		nextBeforeID = comments[0].ID
 	}
 
-	writeJSON(
-		w,
-		http.StatusOK,
-		map[string]interface{}{
-			"comments": comments,
-
-			"has_more": hasMore,
-
-			"next_before_id": nextBeforeID,
-		},
-	)
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"comments":       comments,
+		"has_more":       hasMore,
+		"next_before_id": nextBeforeID,
+	})
 }
 
 func createGroupPostCommentHandler(w http.ResponseWriter, r *http.Request, groupID int, groupPostID int) {

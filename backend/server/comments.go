@@ -143,12 +143,7 @@ func createCommentHandler(w http.ResponseWriter, r *http.Request, postID int) {
 			image_path
 		)
 		VALUES (?, ?, ?, ?)
-	`,
-		postID,
-		userID,
-		content,
-		imagePath,
-	)
+	`, postID, userID, content, imagePath)
 
 	if err != nil {
 		errorJSON(w, "could not create comment", http.StatusInternalServerError)
@@ -186,21 +181,12 @@ func listCommentsHandler(w http.ResponseWriter, r *http.Request, postID int) {
 
 	limit := 5
 
-	if rawLimit :=
-		r.URL.Query().Get("limit"); rawLimit != "" {
+	if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
 
-		parsedLimit, err :=
-			strconv.Atoi(rawLimit)
+		parsedLimit, err := strconv.Atoi(rawLimit)
 
-		if err != nil ||
-			parsedLimit <= 0 ||
-			parsedLimit > 20 {
-
-			errorJSON(
-				w,
-				"invalid comment limit",
-				http.StatusBadRequest,
-			)
+		if err != nil || parsedLimit <= 0 || parsedLimit > 20 {
+			errorJSON(w, "invalid comment limit", http.StatusBadRequest)
 			return
 		}
 
@@ -209,20 +195,13 @@ func listCommentsHandler(w http.ResponseWriter, r *http.Request, postID int) {
 
 	beforeID := 0
 
-	if rawBefore :=
-		r.URL.Query().Get("before_id"); rawBefore != "" {
+	if rawBefore := r.URL.Query().Get("before_id"); rawBefore != "" {
 
-		parsedBefore, err :=
-			strconv.Atoi(rawBefore)
+		parsedBefore, err := strconv.Atoi(rawBefore)
 
-		if err != nil ||
-			parsedBefore <= 0 {
+		if err != nil || parsedBefore <= 0 {
 
-			errorJSON(
-				w,
-				"invalid comment cursor",
-				http.StatusBadRequest,
-			)
+			errorJSON(w, "invalid comment cursor", http.StatusBadRequest)
 			return
 		}
 
@@ -234,47 +213,23 @@ func listCommentsHandler(w http.ResponseWriter, r *http.Request, postID int) {
 			comments.id,
 			comments.post_id,
 			comments.user_id,
-			users.first_name || ' ' ||
-				users.last_name
-				AS author_name,
-			COALESCE(
-				users.nickname,
-				''
-			) AS author_nickname,
-			COALESCE(
-				users.avatar_path,
-				''
-			) AS author_avatar_path,
+			users.first_name || ' ' || users.last_name AS author_name,
+			COALESCE(users.nickname, '') AS author_nickname,
+			COALESCE(users.avatar_path, '') AS author_avatar_path,
 			comments.content,
-			COALESCE(
-				comments.image_path,
-				''
-			) AS image_path,
+			COALESCE(comments.image_path, '') AS image_path,
 			comments.created_at
 		FROM comments
 		JOIN users
-			ON users.id =
-				comments.user_id
+			ON users.id = comments.user_id
 		WHERE comments.post_id = ?
-		  AND (
-			? = 0
-			OR comments.id < ?
-		  )
+		  AND ( ? = 0 OR comments.id < ?)
 		ORDER BY comments.id DESC
 		LIMIT ?
-	`,
-		postID,
-		beforeID,
-		beforeID,
-		limit+1,
-	)
+	`, postID, beforeID, beforeID, limit+1)
 
 	if err != nil {
-		errorJSON(
-			w,
-			"could not load comments",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "could not load comments", http.StatusInternalServerError)
 		return
 	}
 
@@ -298,58 +253,38 @@ func listCommentsHandler(w http.ResponseWriter, r *http.Request, postID int) {
 		)
 
 		if err != nil {
-			errorJSON(
-				w,
-				"could not read comment data",
-				http.StatusInternalServerError,
-			)
+			errorJSON(w, "could not read comment data", http.StatusInternalServerError)
 			return
 		}
 
-		comments =
-			append(comments, comment)
+		comments = append(comments, comment)
 	}
 
 	if err := rows.Err(); err != nil {
-		errorJSON(
-			w,
-			"error while reading comments",
-			http.StatusInternalServerError,
-		)
+		errorJSON(w, "error while reading comments", http.StatusInternalServerError)
 		return
 	}
 
-	hasMore :=
-		len(comments) > limit
+	hasMore := len(comments) > limit
 
 	if hasMore {
-		comments =
-			comments[:limit]
+		comments = comments[:limit]
 	}
 
-	for i, j :=
-		0, len(comments)-1; i < j; i, j = i+1, j-1 {
+	for i, j := 0, len(comments)-1; i < j; i, j = i+1, j-1 {
 
-		comments[i],
-			comments[j] =
-			comments[j],
-			comments[i]
+		comments[i], comments[j] = comments[j], comments[i]
 	}
 
 	nextBeforeID := 0
 
 	if len(comments) > 0 {
-		nextBeforeID =
-			comments[0].ID
+		nextBeforeID = comments[0].ID
 	}
 
-	writeJSON(
-		w,
-		http.StatusOK,
-		map[string]interface{}{
-			"comments":       comments,
-			"has_more":       hasMore,
-			"next_before_id": nextBeforeID,
-		},
-	)
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"comments":       comments,
+		"has_more":       hasMore,
+		"next_before_id": nextBeforeID,
+	})
 }

@@ -1,13 +1,10 @@
 <template>
   <main class="users-page">
-    <!-- PAGE HEADER -->
-
     <header class="users-header">
       <h1>Users</h1>
     </header>
 
     <!-- FOLLOW REQUESTS -->
-
     <section
       v-if="loadingRequests || requestsError || followRequests.length > 0"
       class="follow-requests-card"
@@ -84,8 +81,6 @@
       </div>
     </section>
 
-    <!-- PEOPLE DIRECTORY -->
-
     <section class="users-section">
       <div class="users-section-heading">
         <div>
@@ -94,7 +89,6 @@
       </div>
 
       <!-- SEARCH -->
-
       <div class="users-search">
         <span class="users-search-icon" aria-hidden="true">
           <i class="fa-solid fa-magnifying-glass"></i>
@@ -121,8 +115,6 @@
         </button>
       </div>
 
-      <!-- LOADING -->
-
       <div v-if="loadingUsers" class="users-state">
         <span class="loading-spinner"></span>
 
@@ -132,8 +124,6 @@
       <p v-else-if="usersError" class="users-error">
         {{ usersError }}
       </p>
-
-      <!-- SEARCH HAS NO RESULTS -->
 
       <div
         v-else-if="users.length === 0 && debouncedSearchQuery"
@@ -148,8 +138,6 @@
         <p>No users match "{{ searchQuery }}"</p>
       </div>
 
-      <!-- NO USERS AT ALL -->
-
       <div v-else-if="users.length === 0" class="users-empty">
         <div class="users-empty-icon">
           <i class="fa-solid fa-users" aria-hidden="true"></i>
@@ -159,11 +147,8 @@
       </div>
 
       <!-- USERS -->
-
       <div v-else class="users-list">
         <article v-for="user in users" :key="user.id" class="person-card">
-          <!-- USER -->
-
           <router-link :to="`/profiles/${user.id}`" class="person-main">
             <UserAvatar
               :avatar-path="user.avatar_path"
@@ -197,8 +182,6 @@
               </span>
             </div>
           </router-link>
-
-          <!-- ACTION -->
 
           <div class="person-actions">
             <button
@@ -250,8 +233,6 @@
       </div>
 
       <div v-if="users.length > 0" class="users-pagination">
-        <!-- LOADING MORE -->
-
         <div v-if="loadingMoreUsers" class="users-load-more">
           <span class="loading-spinner"></span>
 
@@ -272,8 +253,7 @@
           </button>
         </div>
 
-        <!-- SCROLL TARGET -->
-
+        <!-- SCROLL TRIGGER -->
         <div
           v-else-if="hasMoreUsers"
           ref="usersLoadTrigger"
@@ -301,7 +281,7 @@ const users = ref([]);
 const followRequests = ref([]);
 const loadingUsers = ref(false);
 const loadingRequests = ref(false);
-const usersError = ref("");
+const usersErroru = ref("");
 const requestsError = ref("");
 const searchQuery = ref("");
 const debouncedSearchQuery = ref("");

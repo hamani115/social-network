@@ -14,7 +14,6 @@
     </header>
 
     <!-- FILTERS -->
-
     <div class="notification-filters">
       <button
         type="button"
@@ -50,8 +49,6 @@
       {{ notifications.error }}
     </p>
 
-    <!-- INITIAL LOADING -->
-
     <div v-if="notifications.loading" class="notifications-state">
       <span class="loading-spinner"></span>
 
@@ -75,8 +72,6 @@
       </h2>
     </section>
 
-    <!-- LIST -->
-
     <section v-else class="notifications-list">
       <button
         v-for="notification in notifications.notifications"
@@ -88,16 +83,12 @@
         }"
         @click="openNotification(notification)"
       >
-        <!-- UNREAD DOT -->
-
         <span class="notification-unread-column">
           <span
             v-if="!notification.is_read"
             class="notification-unread-dot"
           ></span>
         </span>
-
-        <!-- ICON -->
 
         <span
           class="notification-icon"
@@ -106,8 +97,6 @@
         >
           <i :class="notificationMeta(notification.type).icon"></i>
         </span>
-
-        <!-- CONTENT -->
 
         <span class="notification-content">
           <span class="notification-meta-row">
@@ -125,8 +114,6 @@
           </span>
         </span>
 
-        <!-- OPEN -->
-
         <span
           v-if="notification.link_path"
           class="notification-arrow"
@@ -137,7 +124,6 @@
       </button>
 
       <!-- PAGINATION -->
-
       <div class="notifications-pagination">
         <div
           v-if="notifications.loadingMore"

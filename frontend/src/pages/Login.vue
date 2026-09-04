@@ -5,13 +5,11 @@
         <h1>Welcome back!</h1>
       </section>
 
-      <!-- LOGIN CARD -->
       <section class="auth-card">
         <header class="auth-card-header">
           <h2>Log in</h2>
         </header>
 
-        <!-- SUCCESS -->
         <div v-if="registeredSuccessfully" class="auth-success">
           Account created successfully. You can now log in.
         </div>
